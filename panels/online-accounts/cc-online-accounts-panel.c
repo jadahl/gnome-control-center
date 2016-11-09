@@ -35,28 +35,23 @@
 #include "cc-online-accounts-model.h"
 #include "cc-online-accounts-resources.h"
 
-typedef struct _CcGoaPanelClass CcGoaPanelClass;
-
 struct _CcGoaPanel
 {
   CcPanel parent_instance;
-
-  GtkBuilder *builder;
 
   GoaClient *client;
 
   GoaPanelAccountsModel *accounts_model;
 
+  GtkWidget *accounts_notebook;
+  GtkWidget *accounts_tree_box;
+  GtkWidget *accounts_tree_label;
+  GtkWidget *add_account_button;
   GtkWidget *toolbar;
   GtkWidget *toolbar_add_button;
   GtkWidget *toolbar_remove_button;
   GtkWidget *accounts_treeview;
   GtkWidget *accounts_vbox;
-};
-
-struct _CcGoaPanelClass
-{
-  CcPanelClass parent_class;
 };
 
 static void on_model_row_deleted (GtkTreeModel *tree_model,
@@ -192,7 +187,6 @@ cc_goa_panel_finalize (GObject *object)
 
   g_clear_object (&panel->accounts_model);
   g_clear_object (&panel->client);
-  g_clear_object (&panel->builder);
 
   G_OBJECT_CLASS (cc_goa_panel_parent_class)->finalize (object);
 }
@@ -200,32 +194,18 @@ cc_goa_panel_finalize (GObject *object)
 static void
 cc_goa_panel_init (CcGoaPanel *panel)
 {
-  GtkWidget *button;
-  GtkWidget *w;
   GError *error;
-  GtkStyleContext *context;
   GtkTreeViewColumn *column;
   GtkCellRenderer *renderer;
   GtkTreeIter iter;
   GNetworkMonitor *monitor;
 
   g_resources_register (cc_online_accounts_get_resource ());
+
+  gtk_widget_init_template (GTK_WIDGET (panel));
+
   monitor = g_network_monitor_get_default();
 
-  panel->builder = gtk_builder_new ();
-  error = NULL;
-  if (gtk_builder_add_from_resource (panel->builder,
-                                     "/org/gnome/control-center/online-accounts/online-accounts.ui",
-                                     &error) == 0)
-    {
-      g_warning ("Error loading UI file: %s (%s, %d)",
-                 error->message, g_quark_to_string (error->domain), error->code);
-      g_error_free (error);
-      goto out;
-    }
-
-  panel->toolbar = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-toolbar"));
-  panel->toolbar_add_button = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-toolbutton-add"));
   g_object_bind_property (monitor, "network-available",
                           panel->toolbar_add_button, "sensitive",
                           G_BINDING_SYNC_CREATE);
@@ -233,33 +213,23 @@ cc_goa_panel_init (CcGoaPanel *panel)
                     "clicked",
                     G_CALLBACK (on_toolbar_add_button_clicked),
                     panel);
-  panel->toolbar_remove_button = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-toolbutton-remove"));
   g_signal_connect (panel->toolbar_remove_button,
                     "clicked",
                     G_CALLBACK (on_toolbar_remove_button_clicked),
                     panel);
 
-  context = gtk_widget_get_style_context (GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-scrolledwindow")));
-  gtk_style_context_set_junction_sides (context, GTK_JUNCTION_BOTTOM);
-  context = gtk_widget_get_style_context (panel->toolbar);
-  gtk_style_context_set_junction_sides (context, GTK_JUNCTION_TOP);
-
-  panel->accounts_treeview = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-treeview"));
   g_signal_connect (gtk_tree_view_get_selection (GTK_TREE_VIEW (panel->accounts_treeview)),
                     "changed",
                     G_CALLBACK (on_tree_view_selection_changed),
                     panel);
 
-  button = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-button-add"));
   g_object_bind_property (monitor, "network-available",
-                          button, "sensitive",
+                          panel->add_account_button, "sensitive",
                           G_BINDING_SYNC_CREATE);
-  g_signal_connect (button,
+  g_signal_connect (panel->add_account_button,
                     "clicked",
                     G_CALLBACK (on_add_button_clicked),
                     panel);
-
-  panel->accounts_vbox = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-vbox"));
 
   /* TODO: probably want to avoid _sync() ... */
   error = NULL;
@@ -268,8 +238,7 @@ cc_goa_panel_init (CcGoaPanel *panel)
     {
       g_warning ("Error getting a GoaClient: %s (%s, %d)",
                  error->message, g_quark_to_string (error->domain), error->code);
-      w = GTK_WIDGET (gtk_builder_get_object (panel->builder, "goa-top-widget"));
-      gtk_widget_set_sensitive (w, FALSE);
+      gtk_widget_set_sensitive (GTK_WIDGET (panel), FALSE);
       g_error_free (error);
       goto out;
     }
@@ -325,9 +294,7 @@ cc_goa_panel_init (CcGoaPanel *panel)
                                     &iter);
 
  out:
-  w = GTK_WIDGET (gtk_builder_get_object (panel->builder, "goa-top-widget"));
-  gtk_container_add (GTK_CONTAINER (panel), w);
-  gtk_widget_show_all (w);
+  gtk_widget_show_all (GTK_WIDGET (panel));
 }
 
 static const char *
@@ -339,6 +306,7 @@ cc_goa_panel_get_help_uri (CcPanel *panel)
 static void
 cc_goa_panel_class_init (CcGoaPanelClass *klass)
 {
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   CcPanelClass *panel_class = CC_PANEL_CLASS (klass);
 
@@ -348,6 +316,18 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   object_class->finalize = cc_goa_panel_finalize;
 
   g_object_class_override_property (object_class, PROP_PARAMETERS, "parameters");
+
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/control-center/online-accounts/online-accounts.ui");
+
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_notebook);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_treeview);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_tree_box);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_tree_label);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_vbox);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, add_account_button);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar_add_button);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar_remove_button);
 }
 
 /* ---------------------------------------------------------------------------------------------------- */
@@ -356,24 +336,16 @@ static void
 show_page (CcGoaPanel *panel,
            gint page_num)
 {
-  GtkNotebook *notebook;
-  notebook = GTK_NOTEBOOK (gtk_builder_get_object (panel->builder, "accounts-notebook"));
-  gtk_notebook_set_current_page (notebook, page_num);
+  gtk_notebook_set_current_page (GTK_NOTEBOOK (panel->accounts_notebook), page_num);
 }
 
 static void
 show_page_nothing_selected (CcGoaPanel *panel)
 {
-  GtkWidget *box;
-  GtkWidget *label;
-
   show_page (panel, 0);
 
-  box = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-box"));
-  gtk_widget_set_sensitive (box, FALSE);
-
-  label = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-label"));
-  gtk_widget_show (label);
+  gtk_widget_set_sensitive (panel->accounts_tree_box, FALSE);
+  gtk_widget_show (panel->accounts_tree_label);
 }
 
 static void
@@ -382,8 +354,6 @@ show_page_account (CcGoaPanel  *panel,
 {
   GList *children;
   GList *l;
-  GtkWidget *box;
-  GtkWidget *label;
   GoaProvider *provider;
   GoaAccount *account;
   const gchar *provider_type;
@@ -391,11 +361,8 @@ show_page_account (CcGoaPanel  *panel,
   provider = NULL;
 
   show_page (panel, 1);
-  box = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-box"));
-  gtk_widget_set_sensitive (box, TRUE);
-
-  label = GTK_WIDGET (gtk_builder_get_object (panel->builder, "accounts-tree-label"));
-  gtk_widget_hide (label);
+  gtk_widget_set_sensitive (panel->accounts_tree_box, TRUE);
+  gtk_widget_hide (panel->accounts_tree_label);
 
   /* Out with the old */
   children = gtk_container_get_children (GTK_CONTAINER (panel->accounts_vbox));
