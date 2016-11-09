@@ -53,9 +53,9 @@ struct _CcGoaPanel
   GtkWidget *accounts_vbox;
 };
 
-static void on_listbox_selection_changed (GtkListBox    *listbox,
-                                          GtkListBoxRow *selected_row,
-                                          CcGoaPanel    *self);
+static void on_listbox_row_activated (GtkListBox    *listbox,
+                                      GtkListBoxRow *activated_row,
+                                      CcGoaPanel    *self);
 
 static void on_toolbar_add_button_clicked (GtkToolButton *button,
                                            gpointer       user_data);
@@ -70,10 +70,6 @@ static void fill_accounts_listbox (CcGoaPanel *self);
 static void on_account_added (GoaClient  *client,
                               GoaObject  *object,
                               gpointer    user_data);
-
-static void on_account_changed (GoaClient  *client,
-                                GoaObject  *object,
-                                gpointer    user_data);
 
 static void on_account_removed (GoaClient  *client,
                                 GoaObject  *object,
@@ -251,11 +247,6 @@ cc_goa_panel_init (CcGoaPanel *panel)
                     panel);
 
   g_signal_connect (panel->client,
-                    "account-changed",
-                    G_CALLBACK (on_account_changed),
-                    panel);
-
-  g_signal_connect (panel->client,
                     "account-removed",
                     G_CALLBACK (on_account_removed),
                     panel);
@@ -313,7 +304,7 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar_remove_button);
 
   gtk_widget_class_bind_template_callback (widget_class, on_add_button_clicked);
-  gtk_widget_class_bind_template_callback (widget_class, on_listbox_selection_changed);
+  gtk_widget_class_bind_template_callback (widget_class, on_listbox_row_activated);
   gtk_widget_class_bind_template_callback (widget_class, on_toolbar_add_button_clicked);
   gtk_widget_class_bind_template_callback (widget_class, on_toolbar_remove_button_clicked);
 }
@@ -325,15 +316,6 @@ show_page (CcGoaPanel *panel,
            gint page_num)
 {
   gtk_notebook_set_current_page (GTK_NOTEBOOK (panel->accounts_notebook), page_num);
-}
-
-static void
-show_page_nothing_selected (CcGoaPanel *panel)
-{
-  show_page (panel, 0);
-
-  gtk_widget_set_sensitive (panel->accounts_tree_box, FALSE);
-  gtk_widget_show (panel->accounts_tree_label);
 }
 
 static void
@@ -391,23 +373,23 @@ static void
 select_account_by_id (CcGoaPanel  *panel,
                       const gchar *account_id)
 {
-  GtkListBoxRow *account_row;
+  GoaObject *row_object;
   GList *children, *l;
 
-  account_row = NULL;
+  row_object = NULL;
   children = gtk_container_get_children (GTK_CONTAINER (panel->accounts_listbox));
 
   for (l = children; l != NULL; l = l->next)
     {
       GoaAccount *account;
-      GoaObject *row_object;
+      GoaObject *object;
 
-      row_object = g_object_get_data (l->data, "goa-object");
+      object = g_object_get_data (l->data, "goa-object");
       account = goa_object_peek_account (row_object);
 
       if (g_strcmp0 (goa_account_get_id (account), account_id) == 0)
         {
-          account_row = l->data;
+          show_page_account (panel, object);
           break;
         }
     }
@@ -416,35 +398,26 @@ select_account_by_id (CcGoaPanel  *panel,
 }
 
 static void
-on_listbox_selection_changed (GtkListBox    *listbox,
-                              GtkListBoxRow *selected_row,
-                              CcGoaPanel    *self)
+on_listbox_row_activated (GtkListBox    *listbox,
+                          GtkListBoxRow *activated_row,
+                          CcGoaPanel    *self)
 {
-  if (selected_row)
-    {
-      GoaObject *object;
-      gboolean is_locked;
+  GoaObject *object;
+  gboolean is_locked;
 
-      object = g_object_get_data (G_OBJECT (selected_row), "goa-object");
-      is_locked = goa_account_get_is_locked (goa_object_peek_account (object));
+  object = g_object_get_data (G_OBJECT (activated_row), "goa-object");
+  is_locked = goa_account_get_is_locked (goa_object_peek_account (object));
 
-      show_page_account (self, object);
+  show_page_account (self, object);
 
-      gtk_widget_set_sensitive (self->toolbar_remove_button, !is_locked);
-    }
-  else
-    {
-      show_page_nothing_selected (self);
-    }
+  gtk_widget_set_sensitive (self->toolbar_remove_button, !is_locked);
 }
 
 static void
 fill_accounts_listbox (CcGoaPanel *self)
 {
-  GtkListBox *listbox;
   GList *accounts, *l;
 
-  listbox = GTK_LIST_BOX (self->accounts_listbox);
   accounts = goa_client_get_accounts (self->client);
 
   for (l = accounts; l != NULL; l = l->next)
@@ -536,35 +509,14 @@ on_account_added (GoaClient *client,
 }
 
 static void
-on_account_changed (GoaClient  *client,
-                    GoaObject  *object,
-                    gpointer    user_data)
-{
-  CcGoaPanel *panel = CC_GOA_PANEL (user_data);
-  GtkListBoxRow *selected_row;
-  GoaObject *selected_object;
-
-  selected_row = gtk_list_box_get_selected_row (GTK_LIST_BOX (panel->accounts_listbox));
-
-  if (!selected_row)
-    return;
-
-  selected_object = g_object_get_data (G_OBJECT (selected_row), "goa-object");
-
-  if (selected_object == object)
-    show_page_account (panel, selected_object);
-}
-
-static void
 on_account_removed (GoaClient *client,
                     GoaObject *object,
                     gpointer   user_data)
 {
   CcGoaPanel *self = user_data;
-  GList *children, *l, *prev;
+  GList *children, *l;
 
   children = gtk_container_get_children (GTK_CONTAINER (self->accounts_listbox));
-  prev = NULL;
 
   for (l = children; l != NULL; l = l->next)
     {
@@ -577,8 +529,6 @@ on_account_removed (GoaClient *client,
           gtk_widget_destroy (l->data);
           break;
         }
-
-      prev = l;
     }
 
   g_list_free (children);

@@ -35,8 +35,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="width_request">278</property>
-                        <property name="selection_mode">browse</property>
-                        <signal name="row-selected" handler="on_listbox_selection_changed" object="CcGoaPanel" swapped="no" />
+                        <property name="selection_mode">none</property>
+                        <signal name="row-activated" handler="on_listbox_row_activated" object="CcGoaPanel" swapped="no" />
                       </object>
                     </child>
                   </object>
