@@ -45,6 +45,8 @@ struct _CcGoaPanel
   GtkWidget *accounts_tree_box;
   GtkWidget *accounts_tree_label;
   GtkWidget *add_account_button;
+  GtkWidget *edit_account_dialog;
+  GtkWidget *edit_account_headerbar;
   GtkWidget *toolbar;
   GtkWidget *toolbar_add_button;
   GtkWidget *toolbar_remove_button;
@@ -268,6 +270,20 @@ cc_goa_panel_get_help_uri (CcPanel *panel)
 }
 
 static void
+cc_goa_panel_constructed (GObject *object)
+{
+  CcGoaPanel *self = CC_GOA_PANEL (object);
+  GtkWindow *parent;
+
+  /* Setup account editor dialog */
+  parent = GTK_WINDOW (cc_shell_get_toplevel (cc_panel_get_shell (CC_PANEL (self))));
+
+  gtk_window_set_transient_for (GTK_WINDOW (self->edit_account_dialog), parent);
+
+  G_OBJECT_CLASS (cc_goa_panel_parent_class)->constructed (object);
+}
+
+static void
 cc_goa_panel_class_init (CcGoaPanelClass *klass)
 {
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
@@ -278,6 +294,7 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
 
   object_class->set_property = cc_goa_panel_set_property;
   object_class->finalize = cc_goa_panel_finalize;
+  object_class->constructed = cc_goa_panel_constructed;
 
   g_object_class_override_property (object_class, PROP_PARAMETERS, "parameters");
 
@@ -289,6 +306,8 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_tree_label);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_vbox);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, add_account_button);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, edit_account_dialog);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, edit_account_headerbar);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar_add_button);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, toolbar_remove_button);
@@ -353,7 +372,15 @@ show_page_account (CcGoaPanel  *panel,
                                  NULL);
     }
 
+  /* Setup the dialog */
+  gtk_header_bar_set_title (GTK_HEADER_BAR (panel->edit_account_headerbar),
+                            goa_account_get_provider_name (account));
+
+  gtk_header_bar_set_subtitle (GTK_HEADER_BAR (panel->edit_account_headerbar),
+                               goa_account_get_presentation_identity (account));
+
   gtk_widget_show_all (panel->accounts_vbox);
+  gtk_widget_show (panel->edit_account_dialog);
 
   g_clear_object (&provider);
 }
@@ -384,8 +411,6 @@ select_account_by_id (CcGoaPanel  *panel,
           break;
         }
     }
-
-  gtk_list_box_select_row (GTK_LIST_BOX (panel->accounts_listbox), account_row);
 
   g_list_free (children);
 }
@@ -424,9 +449,6 @@ fill_accounts_listbox (CcGoaPanel *self)
 
   for (l = accounts; l != NULL; l = l->next)
     on_account_added (self->client, l->data, self);
-
-  /* Select the first row */
-  gtk_list_box_select_row (listbox, gtk_list_box_get_row_at_index (listbox, 0));
 
   g_list_free_full (accounts, g_object_unref);
 }
@@ -552,7 +574,6 @@ on_account_removed (GoaClient *client,
 
       if (row_object == object)
         {
-          gtk_list_box_select_row (GTK_LIST_BOX (self->accounts_listbox), prev ? prev->data : NULL);
           gtk_widget_destroy (l->data);
           break;
         }
