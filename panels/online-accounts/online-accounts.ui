@@ -73,16 +73,44 @@
             <property name="hscrollbar_policy">never</property>
             <property name="min_content_height">350</property>
             <child>
-              <object class="GtkBox">
+              <object class="GtkGrid">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="orientation">vertical</property>
-                <property name="spacing">18</property>
-                <property name="margin">18</property>
+                <property name="row-spacing">18</property>
+                <property name="margin-top">18</property>
+                <property name="margin-bottom">32</property>
                 <property name="margin-start">32</property>
                 <property name="margin-end">32</property>
-                <property name="hexpand">True</property>
-                <property name="width-request">300</property>
+
+                <!--
+                  Stub boxes to pull the widgets to the middle, and yet allow them to
+                  grow and cover a third of the available space
+                -->
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                  <packing>
+                    <property name="top-attach">0</property>
+                    <property name="left-attach">0</property>
+                    <property name="height">4</property>
+                  </packing>
+                </child>
+
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                  <packing>
+                    <property name="top-attach">0</property>
+                    <property name="left-attach">2</property>
+                    <property name="height">4</property>
+                  </packing>
+                </child>
+
                 <child>
                   <object class="GtkLabel">
                     <property name="visible">True</property>
@@ -92,6 +120,10 @@
                       <attribute name="scale" value="1.66" />
                     </attributes>
                   </object>
+                  <packing>
+                    <property name="top-attach">0</property>
+                    <property name="left-attach">1</property>
+                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel" id="offline_label">
@@ -100,6 +132,10 @@
                     <property name="wrap">True</property>
                     <property name="label" translatable="yes">No internet connection - connect to setup new online accounts</property>
                   </object>
+                  <packing>
+                    <property name="top-attach">1</property>
+                    <property name="left-attach">1</property>
+                  </packing>
                 </child>
                 <child>
                   <object class="GtkFrame" id="accounts_frame">
@@ -114,6 +150,10 @@
                       </object>
                     </child>
                   </object>
+                  <packing>
+                    <property name="top-attach">2</property>
+                    <property name="left-attach">1</property>
+                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -126,6 +166,10 @@
                       <attribute name="weight" value="bold" />
                     </attributes>
                   </object>
+                  <packing>
+                    <property name="top-attach">3</property>
+                    <property name="left-attach">1</property>
+                  </packing>
                 </child>
                 <child>
                   <object class="GtkFrame">
@@ -155,6 +199,10 @@
                       </object>
                     </child>
                   </object>
+                  <packing>
+                    <property name="top-attach">4</property>
+                    <property name="left-attach">1</property>
+                  </packing>
                 </child>
               </object>
             </child>
