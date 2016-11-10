@@ -43,6 +43,7 @@ struct _CcGoaPanel
   GoaObject *edited_object;
   GoaObject *removed_object;
 
+  GtkWidget *accounts_frame;
   GtkWidget *accounts_listbox;
   GtkWidget *edit_account_dialog;
   GtkWidget *edit_account_headerbar;
@@ -487,6 +488,7 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/control-center/online-accounts/online-accounts.ui");
 
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_frame);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_listbox);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, accounts_vbox);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, edit_account_dialog);
@@ -699,6 +701,7 @@ on_account_added (GoaClient *client,
 
   /* Add to the listbox */
   gtk_container_add (GTK_CONTAINER (self->accounts_listbox), row);
+  gtk_widget_show (self->accounts_frame);
 
   g_clear_pointer (&title, g_free);
   g_clear_object (&gicon);
@@ -723,9 +726,13 @@ on_account_removed (GoaClient *client,
       if (row_object == object)
         {
           gtk_widget_destroy (l->data);
+          children = g_list_remove (children, l->data);
           break;
         }
     }
+
+  /* Hide the list if we removed the last account */
+  gtk_widget_set_visible (self->accounts_frame, children != NULL);
 
   g_list_free (children);
 }
