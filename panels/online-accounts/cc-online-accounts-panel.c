@@ -40,13 +40,20 @@ struct _CcGoaPanel
 
   GoaClient *client;
 
+  GoaObject *edited_object;
+  GoaObject *removed_object;
+
   GtkWidget *accounts_listbox;
   GtkWidget *edit_account_dialog;
   GtkWidget *edit_account_headerbar;
   GtkWidget *new_account_vbox;
+  GtkWidget *notification_label;
+  GtkWidget *notification_revealer;
   GtkWidget *providers_listbox;
   GtkWidget *stack;
   GtkWidget *accounts_vbox;
+
+  guint      remove_account_timeout_id;
 };
 
 static void on_listbox_row_activated (GtkListBox    *listbox,
@@ -75,6 +82,15 @@ static void add_provider_row (CcGoaPanel  *self,
 
 static void show_page_account (CcGoaPanel *panel,
                                GoaObject  *object);
+
+static void on_remove_button_clicked (GtkButton *button,
+                                      gpointer   user_data);
+
+static void on_notification_closed (GtkButton  *button,
+                                    CcGoaPanel *self);
+
+static void on_undo_button_clicked (GtkButton  *button,
+                                    CcGoaPanel *self);
 
 CC_PANEL_REGISTER (CcGoaPanel, cc_goa_panel);
 
@@ -409,11 +425,16 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, edit_account_dialog);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, edit_account_headerbar);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, new_account_vbox);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, notification_label);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, notification_revealer);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, providers_listbox);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, stack);
 
   gtk_widget_class_bind_template_callback (widget_class, on_listbox_row_activated);
+  gtk_widget_class_bind_template_callback (widget_class, on_notification_closed);
   gtk_widget_class_bind_template_callback (widget_class, on_provider_row_activated);
+  gtk_widget_class_bind_template_callback (widget_class, on_remove_button_clicked);
+  gtk_widget_class_bind_template_callback (widget_class, on_undo_button_clicked);
 }
 
 /* ---------------------------------------------------------------------------------------------------- */
@@ -431,6 +452,9 @@ show_page_account (CcGoaPanel  *panel,
   provider = NULL;
 
   reset_headerbar (panel);
+
+  /* Store the current object being edited */
+  panel->edited_object = object;
 
   /* Move to the account editor page */
   gtk_stack_set_visible_child_name (GTK_STACK (panel->stack), "editor");
@@ -661,6 +685,44 @@ get_all_providers_cb (GObject      *source,
 
 /* ---------------------------------------------------------------------------------------------------- */
 
+
+static GtkWidget *
+get_row_for_account (CcGoaPanel *self,
+                     GoaAccount *account)
+{
+  GtkWidget *row;
+  GList *children, *l;
+
+  row = NULL;
+  children = gtk_container_get_children (GTK_CONTAINER (self->accounts_listbox));
+
+  for (l = children; l != NULL; l = l->next)
+    {
+      GoaObject *row_object = g_object_get_data (l->data, "goa-object");
+
+      if (goa_object_peek_account (row_object) == account)
+        {
+          row = l->data;
+          break;
+        }
+    }
+
+  g_list_free (children);
+
+  return row;
+}
+
+static void
+cancel_notification_timeout (CcGoaPanel *self)
+{
+  if (self->remove_account_timeout_id == 0)
+    return;
+
+  g_source_remove (self->remove_account_timeout_id);
+
+  self->remove_account_timeout_id = 0;
+}
+
 static void
 remove_account_cb (GoaAccount    *account,
                    GAsyncResult  *res,
@@ -690,35 +752,78 @@ remove_account_cb (GoaAccount    *account,
 }
 
 static void
-on_toolbar_remove_button_clicked (GtkToolButton *button,
-                                  gpointer       user_data)
+on_notification_closed (GtkButton  *button,
+                        CcGoaPanel *self)
+{
+  goa_account_call_remove (goa_object_peek_account (self->removed_object),
+                           NULL, /* GCancellable */
+                           (GAsyncReadyCallback) remove_account_cb,
+                           g_object_ref (self));
+
+  gtk_revealer_set_reveal_child (GTK_REVEALER (self->notification_revealer), FALSE);
+
+  cancel_notification_timeout (self);
+  self->removed_object = NULL;
+}
+
+static void
+on_undo_button_clicked (GtkButton  *button,
+                        CcGoaPanel *self)
+{
+  GtkWidget *row;
+
+  /* Simply show the account row and hide the notification */
+  row = get_row_for_account (self, goa_object_peek_account (self->removed_object));
+  gtk_widget_show (row);
+
+  gtk_revealer_set_reveal_child (GTK_REVEALER (self->notification_revealer), FALSE);
+
+  cancel_notification_timeout (self);
+  self->removed_object = NULL;
+}
+
+static gboolean
+on_remove_account_timeout (gpointer user_data)
+{
+  on_notification_closed (NULL, user_data);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+on_remove_button_clicked (GtkButton *button,
+                          gpointer   user_data)
 {
   CcGoaPanel *panel = CC_GOA_PANEL (user_data);
-  GtkListBoxRow *selected_row;
-  GoaObject *object;
-  GtkWidget *dialog;
-  gint response;
+  GoaAccount *account;
+  GtkWidget *row;
+  gchar *label;
 
-  selected_row = gtk_list_box_get_selected_row (GTK_LIST_BOX (panel->accounts_listbox));
-  object = g_object_get_data (G_OBJECT (selected_row), "goa-object");
+  if (!panel->edited_object)
+    return;
 
-  dialog = gtk_message_dialog_new (GTK_WINDOW (cc_shell_get_toplevel (cc_panel_get_shell (CC_PANEL (panel)))),
-                                   GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                                   GTK_MESSAGE_QUESTION,
-                                   GTK_BUTTONS_CANCEL,
-                                   _("Are you sure you want to remove the account?"));
-  gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (dialog),
-                                            _("This will not remove the account on the server."));
-  gtk_dialog_add_button (GTK_DIALOG (dialog), _("_Remove"), GTK_RESPONSE_OK);
-  gtk_widget_show_all (dialog);
-  response = gtk_dialog_run (GTK_DIALOG (dialog));
-  gtk_widget_destroy (dialog);
+  /* If there is a pending account to be removed, remove it now */
+  if (panel->removed_object)
+    on_notification_closed (NULL, panel);
 
-  if (response == GTK_RESPONSE_OK)
-    {
-      goa_account_call_remove (goa_object_peek_account (object),
-                               NULL, /* GCancellable */
-                               (GAsyncReadyCallback) remove_account_cb,
-                               g_object_ref (panel));
-    }
+  panel->removed_object = panel->edited_object;
+  panel->edited_object = NULL;
+
+  account = goa_object_peek_account (panel->removed_object);
+
+  /* Show the notification... */
+  label = g_strdup_printf (_("Account <b>%s</b> removed"), goa_account_get_presentation_identity (account));
+
+  gtk_label_set_markup (GTK_LABEL (panel->notification_label), label);
+  gtk_revealer_set_reveal_child (GTK_REVEALER (panel->notification_revealer), TRUE);
+
+  /* ... and hide both the account row and the account dialog */
+  row = get_row_for_account (panel, account);
+
+  gtk_widget_hide (panel->edit_account_dialog);
+  gtk_widget_hide (row);
+
+  /* Fire up a timer to remove the account */
+  panel->remove_account_timeout_id = g_timeout_add_seconds (7, on_remove_account_timeout, panel);
+
+  g_free (label);
 }
