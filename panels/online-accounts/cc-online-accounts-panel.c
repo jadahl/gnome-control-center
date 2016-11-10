@@ -215,6 +215,17 @@ on_provider_row_activated (GtkListBox    *listbox,
 
 /* ---------------------------------------------------------------------------------------------------- */
 
+static void
+on_dialog_response (GtkWidget  *dialog,
+                    guint       response_id,
+                    CcGoaPanel *self)
+{
+  if (response_id == GTK_RESPONSE_CANCEL || response_id == GTK_RESPONSE_DELETE_EVENT)
+    gtk_widget_hide (dialog);
+}
+
+/* ---------------------------------------------------------------------------------------------------- */
+
 static gint
 sort_func (GtkListBoxRow *a,
            GtkListBoxRow *b,
@@ -430,6 +441,7 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, providers_listbox);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, stack);
 
+  gtk_widget_class_bind_template_callback (widget_class, on_dialog_response);
   gtk_widget_class_bind_template_callback (widget_class, on_listbox_row_activated);
   gtk_widget_class_bind_template_callback (widget_class, on_notification_closed);
   gtk_widget_class_bind_template_callback (widget_class, on_provider_row_activated);
