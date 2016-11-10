@@ -79,6 +79,10 @@
                 <property name="orientation">vertical</property>
                 <property name="spacing">18</property>
                 <property name="margin">18</property>
+                <property name="margin-start">32</property>
+                <property name="margin-end">32</property>
+                <property name="hexpand">True</property>
+                <property name="width-request">300</property>
                 <child>
                   <object class="GtkLabel">
                     <property name="visible">True</property>
