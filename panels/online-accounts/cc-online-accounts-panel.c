@@ -52,6 +52,7 @@ struct _CcGoaPanel
   GtkWidget *notification_label;
   GtkWidget *notification_revealer;
   GtkWidget *providers_listbox;
+  GtkWidget *remove_account_button;
   GtkWidget *stack;
   GtkWidget *accounts_vbox;
 
@@ -449,6 +450,7 @@ cc_goa_panel_class_init (CcGoaPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, notification_label);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, notification_revealer);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, providers_listbox);
+  gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, remove_account_button);
   gtk_widget_class_bind_template_child (widget_class, CcGoaPanel, stack);
 
   gtk_widget_class_bind_template_callback (widget_class, on_dialog_response);
@@ -554,6 +556,8 @@ on_listbox_row_activated (GtkListBox    *listbox,
 
   object = g_object_get_data (G_OBJECT (activated_row), "goa-object");
   is_locked = goa_account_get_is_locked (goa_object_peek_account (object));
+
+  gtk_widget_set_visible (self->remove_account_button, !is_locked);
 
   show_page_account (self, object);
 }
