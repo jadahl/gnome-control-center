@@ -62,6 +62,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="selection_mode">none</property>
+                    <signal name="row-activated" handler="on_provider_row_activated" object="CcGoaPanel" swapped="no" />
                   </object>
                 </child>
               </object>
@@ -77,6 +78,7 @@
     <property name="use_header_bar">1</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
+    <signal name="response" handler="gtk_widget_hide" object="edit_account_dialog" swapped="no" />
     <signal name="delete-event" handler="gtk_widget_hide_on_delete" swapped="no" />
     <child type="titlebar">
       <object class="GtkHeaderBar" id="edit_account_headerbar">
