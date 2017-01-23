@@ -1,14 +1,25 @@
+include $(top_srcdir)/Makefile.decl
+
 # This is used in PANEL_CFLAGS
 cappletname = display
 
 noinst_LTLIBRARIES = libdisplay.la
 
+dbus_display_config_built_sources =	\
+	cc-dbus-display-config.c	\
+	cc-dbus-display-config.h
+
 BUILT_SOURCES =			\
+	$(dbus_display_config_built_sources)	\
 	cc-display-resources.h	\
 	cc-display-resources.c
 
 libdisplay_la_SOURCES =		\
 	$(BUILT_SOURCES)	\
+	cc-display-config.c		\
+	cc-display-config.h		\
+	cc-display-config-manager.c	\
+	cc-display-config-manager.h	\
 	cc-display-panel.c	\
 	cc-display-panel.h	\
 	cc-night-light-dialog.c	\
@@ -25,6 +36,13 @@ cc-display-resources.c: display.gresource.xml $(resource_files)
 	$(AM_V_GEN) glib-compile-resources --target=$@ --sourcedir=$(srcdir) --sourcedir=$(srcdir)/icons --generate-source --c-name cc_display $<
 cc-display-resources.h: display.gresource.xml $(resource_files)
 	$(AM_V_GEN) glib-compile-resources --target=$@ --sourcedir=$(srcdir) --sourcedir=$(srcdir)/icons --generate-header --c-name cc_display $<
+
+$(dbus_display_config_built_sources) : Makefile.am org.gnome.Mutter.DisplayConfig.xml
+	$(AM_V_GEN)gdbus-codegen						\
+		--interface-prefix org.gnome.Mutter				\
+		--c-namespace CcDbus						\
+		--generate-c-code cc-dbus-display-config			\
+		$(srcdir)/org.gnome.Mutter.DisplayConfig.xml
 
 # You will need a recent intltool or the patch from this bug
 # http://bugzilla.gnome.org/show_bug.cgi?id=462312
@@ -52,7 +70,10 @@ AM_CPPFLAGS   = $(PANEL_CFLAGS) \
 	     -DDATADIR="\"$(datadir)\""\
 	     -DGNOMELOCALEDIR="\"$(datadir)/locale\""
 
-CLEANFILES = $(Desktop_in_files) $(desktop_DATA) $(BUILT_SOURCES)
+CLEANFILES =					\
+	$(Desktop_in_files)			\
+	$(desktop_DATA)				\
+	$(dbus_display_config_built_sources)
 EXTRA_DIST = $(resource_files) display.gresource.xml
 
 if MAINTAINER_MODE
@@ -68,5 +89,10 @@ update-icon-cache:
 		echo "***   $(gtk_update_icon_cache)"; \
 	fi
 endif
+
+TEST_PROGS += cc-display-test
+noinst_PROGRAMS = cc-display-test
+cc_display_test_SOURCES = cc-display-test.c cc-display-test.h
+cc_display_test_LDADD = $(PANEL_LIBS) $(DISPLAY_PANEL_LIBS) libdisplay.la
 
 -include $(top_srcdir)/git.mk
