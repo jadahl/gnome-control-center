@@ -45,14 +45,17 @@ list_modes (CcDisplayMonitor *monitor)
     {
       CcDisplayMode *mode = l->data;
       int resolution_width, resolution_height;
-      int preferred_scale;
+      double refresh_rate;
+      double preferred_scale;
 
       cc_display_mode_get_resolution (mode,
                                       &resolution_width, &resolution_height);
+      refresh_rate = cc_display_mode_get_refresh_rate (mode);
       preferred_scale = cc_display_mode_get_preferred_scale (mode);
 
-      g_print ("  %dx%d [preferred scale = %d]%s%s\n",
+      g_print ("  %dx%d@%g [preferred scale = %g]%s%s\n",
                resolution_width, resolution_height,
+               refresh_rate,
                preferred_scale,
                mode == preferred_mode ? " PREFERRED" : "",
                mode == current_mode ? " CURRENT" : "");
@@ -81,6 +84,10 @@ list_monitors (CcDisplayConfigManager *config_manager)
   CcDisplayState *state;
   GError *error = NULL;
   GList *l;
+  int max_screen_width, max_screen_height;
+  double *supported_scales;
+  int n_supported_scales;
+  int i;
 
   state = cc_display_config_manager_new_current_state (config_manager, &error);
   if (!state)
@@ -108,18 +115,35 @@ list_monitors (CcDisplayConfigManager *config_manager)
       CcDisplayLogicalMonitor *logical_monitor = l->data;
       cairo_rectangle_int_t layout;
       bool is_primary;
-      int scale;
+      double scale;
 
-      cc_display_logical_monitor_get_layout (logical_monitor, &layout);
+      cc_display_logical_monitor_calculate_layout (logical_monitor, &layout);
       is_primary = cc_display_logical_monitor_is_primary (logical_monitor);
       scale = cc_display_logical_monitor_get_scale (logical_monitor);
 
-      g_print ("Logical monitor [ %dx%d+%d+%d ]%s, scale = %d\n",
+      g_print ("Logical monitor [ %dx%d+%d+%d ]%s, scale = %g\n",
                layout.width, layout.height, layout.x, layout.y,
                is_primary ? ", PRIMARY" : "",
                scale);
       list_logical_monitor_monitors (logical_monitor);
     }
+
+  if (cc_display_state_get_max_screen_size (state,
+                                            &max_screen_width,
+                                            &max_screen_height))
+    g_print ("Max screen size: %dx%d\n", max_screen_width, max_screen_height);
+  else
+    g_print ("Max screen size: unlimited\n");
+
+  g_print ("Supported scales:");
+  cc_display_state_get_supported_scales (state,
+                                         &supported_scales,
+                                          &n_supported_scales);
+  for (i = 0; i < n_supported_scales; i++)
+    {
+      g_print (" %g", supported_scales[i]);
+    }
+  g_print ("\n");
 
   return EXIT_SUCCESS;
 }

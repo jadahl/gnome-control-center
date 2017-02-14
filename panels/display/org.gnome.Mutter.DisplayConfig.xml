@@ -296,7 +296,9 @@
 	@serial: configuration serial
 	@monitors: available monitors
 	@logical_monitors: current logical monitor configuration
+	@supported_scales: scaling factors supported by the display server
 	@max_screen_size: the maximum screen size
+	@properties: display configuration properties
 
 	@monitors represent connected physical monitors
 
@@ -308,10 +310,14 @@
 	    * i width: width in physical pixels
 	    * i height: height in physical pixels
 	    * d refresh rate: refresh rate
-	    * i preferred scale: scale preferred as per calculations
+	    * d preferred scale: scale preferred as per calculations
 	    * u flags: mode flags (see below)
-	* a{sv} properties: possibly other properties such as "width_mm" and
-			    "height_mm"
+	    * a{sv} properties: optional properties, including:
+		- "width_mm" (i): physical width of monitor in millimeters
+		- "height_mm" (i): physical height of monitor in millimeters
+		- "is_underscanning" (b): whether underscanning is enabled
+					  (absence of this means underscanning
+					  not being supported)
 
         Possible mode flags:
 	  1 : preferred mode
@@ -322,43 +328,69 @@
 
 	* i x: x position
 	* i y: y position
-	* i width: width
-	* i height: height
+	* d scale: scale
+	* b primary: true if this is the primary logical monitor
 	* a(sss) monitors: monitors displaying this logical monitor
 	    * connector: name of the connector (e.g. DP-1, eDP-1 etc)
 	    * vendor: vendor name
 	    * product: product name
 	    * serial: product serial
-	* i scale: scale
-	* b primary: true if this is the primary logical monitor
 	* a{sv} properties: possibly other properties
 
 
 	@max_screen_size represents the maximum size the screen may have, or 0x0 if no
 	such limit is known.
+
+
+	@supported_scales is an ordered list of floating point numbers representing
+	scale factors of logical monitors supported by the display server.
+
+
+	Possible @properties are:
+
+	* "support-mirroring" (b): FALSE if mirroring not supported; TRUE or not
+	                           present if mirroring is supported.
     -->
     <method name="GetCurrentState">
       <arg name="serial" direction="out" type="u" />
-      <arg name="monitors" direction="out" type="a((ssss)a(iidiu)a{sv})" />
-      <arg name="logical_monitors" direction="out" type="a(iiiia(ssss)iba{sv})" />
+      <arg name="monitors" direction="out" type="a((ssss)a(iiddu)a{sv})" />
+      <arg name="logical_monitors" direction="out" type="a(iidba(ssss)a{sv})" />
+      <arg name="supported_scales" direction="out" type="ad" />
       <arg name="max_screen_size" direction="out" type="(ii)" />
+      <arg name="properties" direction="out" type="a{sv}" />
     </method>
 
     <!--
-	ApplyConfiguration:
+	ApplyMonitorsConfig:
 	@serial: configuration serial
-	@monitors: monitor configuration state to apply
+	@method: configuration method
+	@config: monitors configuration
 
-	* u ID: unique identifier of the monitor
-	* u mode ID: unique identifier of desired mode
+	@method represents the way the configuration should be handled.
+
+	Possible methods:
+	  0: verify
+	  1: temporary
+	  2: persistent
+
+	@config consists of a list of logical monitor configurations. Each
+	logical monitor configuration consists of:
+
 	* i: layout x position
 	* i: layout y position
+	* d: scale
+	* b primary: true if this is the primary logical monitor
+	* a(siida{sv}): a list of monitors, each consisting of:
+	    * s: monitor spec (connector, vendor, product, serial)
+	    * (iid): monitor mode spec (resolution width, resolution height,
+		     refresh rate)
+	    * a{sv}: monitor properties, including:
+	        - "enable_underscanning" (b): enable monitor underscanning
     -->
-    <!--
-    <method name="ApplyConfiguration2">
+    <method name="ApplyMonitorsConfig">
       <arg name="serial" direction="in" type="u" />
-      <arg name="monitors" direction="in" type="a{uuiii}" />
+      <arg name="method" direction="in" type="u" />
+      <arg name="config" direction="in" type="a(iidba(s(iid)a{sv}))" />
     </method>
-    -->
   </interface>
 </node>

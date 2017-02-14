@@ -31,7 +31,7 @@ typedef struct _CcDisplayMode
   int resolution_width;
   int resolution_height;
   double refresh_rate;
-  int preferred_scale;
+  double preferred_scale;
   unsigned int flags;
 } CcDisplayMode;
 
@@ -49,7 +49,8 @@ typedef struct _CcDisplayMonitor
 
 typedef struct _CcDisplayLogicalMonitor
 {
-  cairo_rectangle_int_t layout;
+  int x;
+  int y;
   int scale;
   GList *monitors;
   bool is_primary;
@@ -57,10 +58,16 @@ typedef struct _CcDisplayLogicalMonitor
 
 struct _CcDisplayState
 {
+  unsigned int serial;
+
   GList *monitors;
   GList *logical_monitors;
+
   int max_screen_width;
   int max_screen_height;
+
+  double *supported_scales;
+  int n_supported_scales;
 };
 
 const char *
@@ -108,10 +115,22 @@ cc_display_mode_get_resolution (CcDisplayMode *mode,
   *height = mode->resolution_height;
 }
 
-int
+double
+cc_display_mode_get_refresh_rate (CcDisplayMode *mode)
+{
+  return mode->refresh_rate;
+}
+
+double
 cc_display_mode_get_preferred_scale (CcDisplayMode *mode)
 {
   return mode->preferred_scale;
+}
+
+unsigned int
+cc_display_state_get_serial (CcDisplayState *state)
+{
+  return state->serial;
 }
 
 GList *
@@ -126,13 +145,39 @@ cc_display_state_get_logical_monitors (CcDisplayState *state)
   return state->logical_monitors;
 }
 
-#define MODE_FORMAT "(iidiu)"
+gboolean
+cc_display_state_get_max_screen_size (CcDisplayState *state,
+                                      int *max_width,
+                                      int *max_height)
+{
+  if (state->max_screen_width > 0 && state->max_screen_height > 0)
+    {
+      *max_width = state->max_screen_width;
+      *max_height = state->max_screen_height;
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
+}
+
+void
+cc_display_state_get_supported_scales (CcDisplayState *state,
+                                       double **supported_scales,
+                                       int *n_supported_scales)
+{
+  *supported_scales = state->supported_scales;
+  *n_supported_scales = state->n_supported_scales;
+}
+
+#define MODE_FORMAT "(iiddu)"
 #define MODES_FORMAT "a" MODE_FORMAT
 #define MONITOR_SPEC_FORMAT "(ssss)"
-#define MONITOR_FORMAT "(" MONITOR_SPEC_FORMAT MODES_FORMAT "a{sv})"
+#define MONITOR_FORMAT "(" MONITOR_SPEC_FORMAT MODES_FORMAT "@a{sv})"
 #define MONITORS_FORMAT "a" MONITOR_FORMAT
 
-#define LOGICAL_MONITOR_FORMAT "(iiiia" MONITOR_SPEC_FORMAT "iba{sv})"
+#define LOGICAL_MONITOR_FORMAT "(iidba" MONITOR_SPEC_FORMAT "@a{sv})"
 #define LOGICAL_MONITORS_FORMAT "a" LOGICAL_MONITOR_FORMAT
 
 static CcDisplayMode *
@@ -143,7 +188,7 @@ cc_display_mode_new_from_variant (GVariant *mode_variant)
   int32_t resolution_width;
   int32_t resolution_height;
   double refresh_rate;
-  int32_t preferred_scale;
+  double preferred_scale;
 
   g_variant_get (mode_variant, MODE_FORMAT,
                  &resolution_width,
@@ -264,7 +309,8 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
   CcDisplayLogicalMonitor *logical_monitor;
   GVariantIter *monitor_specs_iter;
   GVariant *monitor_spec_variant;
-  int x, y, width, height, scale;
+  int x, y;
+  double scale;
   gboolean is_primary;
   GVariant *properties;
 
@@ -273,26 +319,15 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
   g_variant_get (logical_monitor_variant, LOGICAL_MONITOR_FORMAT,
                  &x,
                  &y,
-                 &width,
-                 &height,
-                 &monitor_specs_iter,
                  &scale,
                  &is_primary,
+                 &monitor_specs_iter,
                  &properties);
-
-  logical_monitor->layout = (cairo_rectangle_int_t) {
-    .x = x,
-    .y = y,
-    .width = width,
-    .height = height
-  };
-  logical_monitor->scale = scale;
-  logical_monitor->is_primary = is_primary;
 
   while ((monitor_spec_variant = g_variant_iter_next_value (monitor_specs_iter)))
     {
       CcDisplayMonitor *monitor;
-      g_autofree char *connector= NULL;
+      g_autofree char *connector = NULL;
       g_autofree char *vendor = NULL;
       g_autofree char *product = NULL;
       g_autofree char *serial = NULL;
@@ -314,6 +349,17 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
       g_variant_unref (monitor_spec_variant);
     }
   g_variant_iter_free (monitor_specs_iter);
+
+  if (!logical_monitor->monitors)
+    {
+      g_warning ("Got an empty logical monitor, ignoring\n");
+      return NULL;
+    }
+
+  logical_monitor->x = x;
+  logical_monitor->y = y;
+  logical_monitor->scale = scale;
+  logical_monitor->is_primary = is_primary;
 
   return logical_monitor;
 }
@@ -338,10 +384,21 @@ cc_display_logical_monitor_is_primary (CcDisplayLogicalMonitor *logical_monitor)
 }
 
 void
-cc_display_logical_monitor_get_layout (CcDisplayLogicalMonitor *logical_monitor,
-                                       cairo_rectangle_int_t *layout)
+cc_display_logical_monitor_calculate_layout (CcDisplayLogicalMonitor *logical_monitor,
+                                             cairo_rectangle_int_t *layout)
 {
-  *layout = logical_monitor->layout;
+  CcDisplayMonitor *monitor;
+
+  g_return_if_fail (logical_monitor->monitors);
+
+  monitor = logical_monitor->monitors->data;
+
+  *layout = (cairo_rectangle_int_t) {
+    .x = logical_monitor->x,
+    .y = logical_monitor->y,
+    .width = monitor->current_mode->resolution_width,
+    .height = monitor->current_mode->resolution_height
+  };
 }
 
 int
@@ -369,6 +426,9 @@ get_logical_monitors_from_variant (CcDisplayState *state,
       logical_monitor =
         cc_display_logical_monitor_new_from_variant (state,
                                                      logical_monitor_variant);
+      if (!logical_monitor)
+        continue;
+
       state->logical_monitors = g_list_append (state->logical_monitors,
                                                logical_monitor);
     }
@@ -378,8 +438,39 @@ static void
 get_max_screen_size_from_variant (CcDisplayState *state,
                                   GVariant *max_screen_size_variant)
 {
+  g_variant_get (max_screen_size_variant, "(ii)",
+                 &state->max_screen_width,
+                 &state->max_screen_height);
 }
 
+static void
+get_supported_scales_from_variant (CcDisplayState *state,
+                                   GVariant *supported_scales_variant)
+{
+  GArray *supported_scales;
+  GVariantIter supported_scales_iter;
+
+  supported_scales = g_array_new (FALSE, TRUE, sizeof (double));
+
+  g_variant_iter_init (&supported_scales_iter, supported_scales_variant);
+  while (true)
+    {
+      GVariant *supported_scale_variant =
+        g_variant_iter_next_value (&supported_scales_iter);
+      double supported_scale;
+
+      if (!supported_scale_variant)
+        break;
+
+      g_variant_get (supported_scale_variant, "d", &supported_scale);
+      g_array_append_val (supported_scales, supported_scale);
+    }
+
+  state->supported_scales = (double *) supported_scales->data;
+  state->n_supported_scales = supported_scales->len;
+
+  g_array_free (supported_scales, FALSE);
+}
 
 static bool
 get_current_state (CcDisplayState *state,
@@ -389,19 +480,25 @@ get_current_state (CcDisplayState *state,
   unsigned int serial;
   GVariant *monitors_variant;
   GVariant *logical_monitors_variant;
+  GVariant *supported_scales_variant;
   GVariant *max_screen_size_variant;
 
   if (!cc_dbus_display_config_call_get_current_state_sync (proxy,
                                                            &serial,
                                                            &monitors_variant,
                                                            &logical_monitors_variant,
+                                                           &supported_scales_variant,
                                                            &max_screen_size_variant,
+                                                           NULL,
                                                            NULL,
                                                            error))
     return false;
 
+  state->serial = serial;
+
   get_monitors_from_variant (state, monitors_variant);
   get_logical_monitors_from_variant (state, logical_monitors_variant);
+  get_supported_scales_from_variant (state, supported_scales_variant);
   get_max_screen_size_from_variant (state, max_screen_size_variant);
 
   return true;

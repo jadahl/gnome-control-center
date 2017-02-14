@@ -36,13 +36,20 @@ CcDisplayState *cc_display_state_new_current (CcDbusDisplayConfig *proxy,
                                               GError **error);
 void cc_display_state_free (CcDisplayState *state);
 
+unsigned int cc_display_state_get_serial (CcDisplayState *state);
 GList *cc_display_state_get_monitors (CcDisplayState *state);
 GList *cc_display_state_get_logical_monitors (CcDisplayState *state);
+gboolean cc_display_state_get_max_screen_size (CcDisplayState *state,
+                                               int *max_width,
+                                               int *max_height);
+void cc_display_state_get_supported_scales (CcDisplayState *state,
+                                            double **supported_scales,
+                                            int *n_supported_scales);
 
 GList * cc_display_logical_monitor_get_monitors (CcDisplayLogicalMonitor *logical_monitor);
 bool cc_display_logical_monitor_is_primary (CcDisplayLogicalMonitor *logical_monitor);
-void cc_display_logical_monitor_get_layout (CcDisplayLogicalMonitor *logical_monitor,
-                                            cairo_rectangle_int_t *layout);
+void cc_display_logical_monitor_calculate_layout (CcDisplayLogicalMonitor *logical_monitor,
+                                                  cairo_rectangle_int_t *layout);
 int cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor);
 
 bool cc_display_monitor_is_active (CcDisplayMonitor *monitor);
@@ -59,6 +66,7 @@ CcDisplayMode * cc_display_monitor_get_preferred_mode (CcDisplayMonitor *monitor
 void cc_display_mode_get_resolution (CcDisplayMode *mode,
 				     int *width,
 				     int *height);
-int cc_display_mode_get_preferred_scale (CcDisplayMode *mode);
+double cc_display_mode_get_refresh_rate (CcDisplayMode *mode);
+double cc_display_mode_get_preferred_scale (CcDisplayMode *mode);
 
 #endif /* _CC_DISPLAY_CONFIG_H */
