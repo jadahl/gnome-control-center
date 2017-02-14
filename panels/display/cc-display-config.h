@@ -30,6 +30,10 @@ typedef struct _CcDisplayState CcDisplayState;
 typedef struct _CcDisplayMonitor CcDisplayMonitor;
 typedef struct _CcDisplayLogicalMonitor CcDisplayLogicalMonitor;
 
+typedef struct _CcDisplayMonitorConfig CcDisplayMonitorConfig;
+typedef struct _CcDisplayLogicalMonitorConfig CcDisplayLogicalMonitorConfig;
+typedef struct _CcDisplayConfig CcDisplayConfig;
+
 typedef struct _CcDisplayMode CcDisplayMode;
 
 CcDisplayState *cc_display_state_new_current (CcDbusDisplayConfig *proxy,
@@ -68,5 +72,41 @@ void cc_display_mode_get_resolution (CcDisplayMode *mode,
 				     int *height);
 double cc_display_mode_get_refresh_rate (CcDisplayMode *mode);
 double cc_display_mode_get_preferred_scale (CcDisplayMode *mode);
+
+CcDisplayMonitor * cc_display_monitor_config_get_monitor (CcDisplayMonitorConfig *monitor_config);
+CcDisplayMode * cc_display_monitor_config_get_mode (CcDisplayMonitorConfig *monitor_config);
+
+CcDisplayLogicalMonitorConfig * cc_display_logical_monitor_config_new (void);
+
+void cc_display_logical_monitor_config_set_position (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                     int x,
+                                                     int y);
+void cc_display_logical_monitor_config_set_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                  double scale);
+
+void cc_display_logical_monitor_config_set_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                       bool is_primary);
+
+void cc_display_logical_monitor_config_add_monitor (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                    CcDisplayMonitor *monitor,
+                                                    CcDisplayMode *mode);
+
+bool cc_display_logical_monitor_config_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config);
+
+double cc_display_logical_monitor_config_get_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config);
+
+void cc_display_logical_monitor_config_get_position (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                     int *x,
+                                                     int *y);
+
+void cc_display_logical_monitor_config_calculate_layout (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                         cairo_rectangle_int_t *layout);
+
+GList * cc_display_logical_monitor_config_get_monitor_configs (CcDisplayLogicalMonitorConfig *logical_monitor_config);
+
+CcDisplayConfig * cc_display_config_new (void);
+void cc_display_config_add_logical_monitor (CcDisplayConfig *config,
+                                            CcDisplayLogicalMonitorConfig *logical_monitor_config);
+GList * cc_display_config_get_logical_logical_monitor_configs (CcDisplayConfig *config);
 
 #endif /* _CC_DISPLAY_CONFIG_H */

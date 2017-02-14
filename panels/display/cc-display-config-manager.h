@@ -29,3 +29,8 @@ CcDisplayState * cc_display_config_manager_new_current_state (CcDisplayConfigMan
 							      GError **error);
 
 CcDisplayConfigManager * cc_display_config_manager_new (GError **error);
+
+gboolean cc_display_config_manager_apply (CcDisplayConfigManager *manager,
+					  CcDisplayState *state,
+					  CcDisplayConfig *config,
+					  GError **error);

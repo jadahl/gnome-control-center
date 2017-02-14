@@ -17,19 +17,55 @@
  *
  */
 
+#define _GNU_SOURCE
+
 #include "cc-display-config.h"
 
+#include <errno.h>
+#include <getopt.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "cc-display-config-manager.h"
 
-static gboolean arg_list = false;
+static CcDisplayState *current_state = NULL;
 
-static GOptionEntry entries[] =
+static CcDisplayConfig *pending_config = NULL;
+static CcDisplayLogicalMonitorConfig *pending_logical_monitor_config = NULL;
+static int pending_logical_monitor_x;
+static int pending_logical_monitor_y;
+static double pending_logical_monitor_scale;
+
+static void
+print_usage (FILE *stream)
 {
-  { "list", 'l', 0, G_OPTION_ARG_NONE, &arg_list, "List current configuration", NULL },
-  { NULL }
-};
+  fprintf (stream, "Usage: %s [OPTIONS...] COMMAND [COMMAND OPTIONS...]\n",
+           g_get_prgname ());
+}
+
+static void
+print_help (void)
+{
+  print_usage (stdout);
+  printf ("Options:\n"
+          " -h, --help                  Print help text\n"
+          "\n"
+          "Commands:\n"
+          "  list                       List current monitors and current configuration\n"
+          "  set                        Set new configuration\n"
+          "\n"
+          "Options for 'set':\n"
+          " -L, --logical-monitor       Add logical monitor\n"
+          " -x, --x=X                   Set x position of newly added logical monitor\n"
+          " -y, --y=Y                   Set y position of newly added logical monitor\n"
+          " -s, --scale=SCALE           Set scale of newly added logical monitor\n"
+          " -p, --primary               Mark the newly added logical monitor as primary\n"
+          " -M, --monitor=CONNECTOR     Add a monitor (given its connector) to newly added\n"
+          "                             logical monitor\n"
+          );
+}
 
 static void
 list_modes (CcDisplayMonitor *monitor)
@@ -78,23 +114,24 @@ list_logical_monitor_monitors (CcDisplayLogicalMonitor *logical_monitor)
     }
 }
 
-static int
-list_monitors (CcDisplayConfigManager *config_manager)
+static gboolean
+list_monitors (GError **error)
 {
+  CcDisplayConfigManager *config_manager;
   CcDisplayState *state;
-  GError *error = NULL;
   GList *l;
   int max_screen_width, max_screen_height;
   double *supported_scales;
   int n_supported_scales;
   int i;
 
-  state = cc_display_config_manager_new_current_state (config_manager, &error);
+  config_manager = cc_display_config_manager_new (error);
+  if (!config_manager)
+    return FALSE;
+
+  state = cc_display_config_manager_new_current_state (config_manager, error);
   if (!state)
-    {
-      g_print ("Failed to get current state: %s\n", error->message);
-      return EXIT_FAILURE;
-    }
+    return FALSE;
 
   for (l = cc_display_state_get_monitors (state); l; l = l->next)
     {
@@ -145,35 +182,365 @@ list_monitors (CcDisplayConfigManager *config_manager)
     }
   g_print ("\n");
 
-  return EXIT_SUCCESS;
+  return TRUE;
+}
+
+static gboolean
+finalize_pending_logical_monitor_config (void)
+{
+  if (!pending_config)
+    return FALSE;
+
+  if (!pending_logical_monitor_config)
+    return FALSE;
+
+  cc_display_logical_monitor_config_set_position (pending_logical_monitor_config,
+                                                  pending_logical_monitor_x,
+                                                  pending_logical_monitor_y);
+  cc_display_logical_monitor_config_set_scale (pending_logical_monitor_config,
+                                               pending_logical_monitor_scale);
+
+  cc_display_config_add_logical_monitor (pending_config,
+                                         pending_logical_monitor_config);
+  pending_logical_monitor_config = NULL;
+
+  return TRUE;
+}
+
+static gboolean
+handle_logical_monitor_arg (GError **error)
+{
+  if (pending_logical_monitor_config)
+    {
+      if (!finalize_pending_logical_monitor_config ())
+        {
+          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                       "Confugiration incomplete");
+          return FALSE;
+        }
+    }
+
+  pending_logical_monitor_config = cc_display_logical_monitor_config_new ();
+  pending_logical_monitor_x = 0;
+  pending_logical_monitor_y = 0;
+  pending_logical_monitor_scale = 1.0;
+
+  return TRUE;
+}
+
+static gboolean
+handle_logical_monitor_property_arg (int option,
+                                     const char *value,
+                                     GError **error)
+{
+  switch (option)
+    {
+    case 'x':
+      {
+        int64_t x;
+
+        errno = 0;
+        x = g_ascii_strtoll (value, NULL, 10);
+        if (errno || x > INT32_MAX || x < INT32_MIN)
+          {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                         "Invalid x value %s", value);
+            return FALSE;
+          }
+
+        pending_logical_monitor_x = x;
+
+        break;
+      }
+    case 'y':
+      {
+        int64_t y;
+
+        errno = 0;
+        y = g_ascii_strtoll (value, NULL, 10);
+        if (errno || y > INT32_MAX || y < INT32_MIN)
+          {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                         "Invalid y value %s", value);
+            return FALSE;
+          }
+
+        pending_logical_monitor_y = y;
+
+        break;
+      }
+    case 's':
+      {
+        double scale;
+
+        scale = g_ascii_strtod (value, NULL);
+        if (errno)
+          {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                         "Invalid scale %s", value);
+            return FALSE;
+          }
+
+        pending_logical_monitor_scale = scale;
+
+        break;
+      }
+    default:
+      g_printerr ("Unhandled option %c\n", option);
+      g_assert_not_reached ();
+    }
+
+  return TRUE;
+}
+
+static gboolean
+handle_logical_monitor_primary_arg (GError **error)
+{
+  if (!pending_logical_monitor_config)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Made primary without logical monitor");
+      return FALSE;
+    }
+
+  cc_display_logical_monitor_config_set_is_primary (pending_logical_monitor_config,
+                                                    TRUE);
+
+  return TRUE;
+}
+
+static gboolean
+add_monitor_with_preferred_mode (CcDisplayMonitor *monitor,
+                                 GError **error)
+{
+  CcDisplayMode *mode;
+
+  if (!pending_logical_monitor_config)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Tried to add monitor without logical monitor");
+      return FALSE;
+    }
+
+  mode = cc_display_monitor_get_preferred_mode (monitor);
+  cc_display_logical_monitor_config_add_monitor (pending_logical_monitor_config,
+                                                 monitor, mode);
+
+  return TRUE;
+}
+
+static gboolean
+handle_monitor_arg (const char *value,
+                    GError **error)
+{
+  GList *l;
+  const char *connector = value;
+
+  for (l = cc_display_state_get_monitors (current_state); l; l = l->next)
+    {
+      CcDisplayMonitor *monitor = l->data;
+
+      if (g_str_equal (cc_display_monitor_get_connector (monitor),
+                       connector))
+        return add_monitor_with_preferred_mode (monitor, error);
+    }
+
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+               "Tried to add unknown monitor %s", value);
+  return FALSE;
+}
+
+static void
+print_pending_configuration (void)
+{
+  GList *logical_monitor_configs;
+  GList *l;
+
+  logical_monitor_configs =
+    cc_display_config_get_logical_logical_monitor_configs (pending_config);
+  for (l = logical_monitor_configs; l; l = l->next)
+    {
+      CcDisplayLogicalMonitorConfig *logical_monitor_config = l->data;
+      cairo_rectangle_int_t layout;
+      bool is_primary;
+      double scale;
+      GList *monitor_configs;
+      GList *k;
+
+      cc_display_logical_monitor_config_calculate_layout (logical_monitor_config,
+                                                          &layout);
+      is_primary =
+        cc_display_logical_monitor_config_is_primary (logical_monitor_config);
+      scale =
+        cc_display_logical_monitor_config_get_scale (logical_monitor_config);
+      g_print ("Logical monitor [ %dx%d+%d+%d ]%s, scale = %g\n",
+               layout.width, layout.height, layout.x, layout.y,
+               is_primary ? ", PRIMARY" : "",
+               scale);
+
+      monitor_configs =
+        cc_display_logical_monitor_config_get_monitor_configs (logical_monitor_config);
+      for (k = monitor_configs; k; k = k->next)
+        {
+          CcDisplayMonitorConfig *monitor_config = k->data;
+          CcDisplayMonitor *monitor;
+          CcDisplayMode *mode;
+          const char *connector;
+          int resolution_width, resolution_height;
+          double refresh_rate;
+
+          monitor = cc_display_monitor_config_get_monitor (monitor_config);
+          connector = cc_display_monitor_get_connector (monitor);
+          mode = cc_display_monitor_config_get_mode (monitor_config);
+          cc_display_mode_get_resolution (mode,
+                                          &resolution_width, &resolution_height);
+          refresh_rate = cc_display_mode_get_refresh_rate (mode);
+
+          g_print ("  Monitor [ %s ] %dx%d@%g\n",
+                   connector,
+                   resolution_width, resolution_height,
+                   refresh_rate);
+        }
+    }
+}
+
+static int
+set_monitors (int argc,
+              char **argv,
+              GError **error)
+{
+  struct option options[] = {
+    { "logical-monitor", no_argument, 0, 'L' },
+    { "x", required_argument, 0, 'x' },
+    { "y", required_argument, 0, 'y' },
+    { "scale", required_argument, 0, 's' },
+    { "primary", no_argument, 0, 'p' },
+    { "monitor", required_argument, 0, 'M' },
+    { "help", no_argument, 0, 'h' },
+    { }
+  };
+  CcDisplayConfigManager *config_manager;
+
+  config_manager = cc_display_config_manager_new (error);
+  if (!config_manager)
+    return FALSE;
+
+  current_state = cc_display_config_manager_new_current_state (config_manager,
+                                                               error);
+  if (!current_state)
+    return FALSE;
+
+  pending_config = cc_display_config_new ();
+
+  while (true)
+    {
+      int c;
+      int option_index;
+
+      c = getopt_long (argc, argv, "Lx:dy:ds:dpM:sh",
+                       options, &option_index);
+
+      if (c < 0)
+        break;
+
+      switch (c)
+        {
+        case 'L':
+          if (!handle_logical_monitor_arg (error))
+            return FALSE;
+          break;
+
+        case 'x':
+        case 'y':
+        case 's':
+          if (!handle_logical_monitor_property_arg (c, optarg, error))
+            return FALSE;
+          break;
+
+        case 'p':
+          if (!handle_logical_monitor_primary_arg (error))
+            return FALSE;
+          break;
+
+        case 'M':
+          if (!handle_monitor_arg (optarg, error))
+            return FALSE;
+          break;
+
+        case 'h':
+          print_help ();
+          return TRUE;
+        }
+    }
+
+  if (!finalize_pending_logical_monitor_config ())
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "Configuration incomplete");
+      return FALSE;
+    }
+
+  print_pending_configuration ();
+
+  return cc_display_config_manager_apply (config_manager,
+                                          current_state,
+                                          pending_config,
+                                          error);
 }
 
 int
 main (int argc,
       char *argv[])
 {
-  GError *error = NULL;
-  GOptionContext *context;
-  CcDisplayConfigManager *config_manager;
+  g_set_prgname (argv[0]);
 
-  context = g_option_context_new ("- display configuration test utility");
-  g_option_context_add_main_entries (context, entries, NULL);
-  if (!g_option_context_parse (context, &argc, &argv, &error))
+  if (argc == 1)
     {
-      g_print ("Option parsing failed: %s\n", error->message);
+      print_usage (stderr);
       return EXIT_FAILURE;
     }
 
-  config_manager = cc_display_config_manager_new (&error);
-  if (!config_manager)
+  if (g_str_equal (argv[1], "--help") || g_str_equal (argv[1], "-h"))
     {
-      g_print ("Failed to creata config manager: %s\n", error->message);
+      print_help ();
       return EXIT_SUCCESS;
     }
 
-  if (arg_list)
-    return list_monitors (config_manager);
+  if (g_str_equal (argv[1], "list") && argc == 2)
+    {
+      GError *error = NULL;
 
-  g_print ("%s", g_option_context_get_help (context, FALSE, NULL));
-  return EXIT_FAILURE;
+      if (!list_monitors (&error))
+        {
+          g_printerr ("Failed to list current configuration: %s\n",
+                      error->message);
+          g_error_free (error);
+          return EXIT_FAILURE;
+        }
+      else
+        {
+          return EXIT_SUCCESS;
+        }
+    }
+  else if (g_str_equal (argv[1], "set"))
+    {
+      GError *error = NULL;
+
+      if (!set_monitors (argc - 1, argv + 1, &error))
+        {
+          g_printerr ("Failed to set configuration: %s\n",
+                      error->message);
+          g_error_free (error);
+          return EXIT_FAILURE;
+        }
+      else
+        {
+          return EXIT_SUCCESS;
+        }
+    }
+  else
+    {
+      print_usage (stderr);
+      return EXIT_FAILURE;
+    }
 }

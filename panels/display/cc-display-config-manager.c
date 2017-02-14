@@ -19,6 +19,9 @@
 
 #include "cc-display-config-manager.h"
 
+#include <stdint.h>
+#include <stdio.h>
+
 #include "cc-display-config.h"
 #include "cc-dbus-display-config.h"
 
@@ -41,6 +44,115 @@ cc_display_config_manager_new_current_state (CcDisplayConfigManager *manager,
                                              GError **error)
 {
   return cc_display_state_new_current (manager->proxy, error);
+}
+
+typedef enum _CcDisplayConfigMethod
+{
+  CC_DISPLAY_METHOD_VERIFY = 0,
+  CC_DISPLAY_METHOD_TEMPORARY = 1,
+  CC_DISPLAY_METHOD_PERSISTENT = 2
+} CcDisplayConfigMethod;
+
+#define MONITOR_MODE_SPEC_FORMAT "(iid)"
+#define MONITOR_CONFIG_FORMAT "(s" MONITOR_MODE_SPEC_FORMAT "a{sv})"
+#define MONITOR_CONFIGS_FORMAT "a" MONITOR_CONFIG_FORMAT
+
+#define LOGICAL_MONITOR_CONFIG_FORMAT "(iidb" MONITOR_CONFIGS_FORMAT ")"
+
+#define CONFIG_FORMAT "a" LOGICAL_MONITOR_CONFIG_FORMAT
+
+static GVariant *
+create_monitors_config_variant (CcDisplayState *state,
+                                CcDisplayConfig *config)
+{
+  GVariantBuilder config_builder;
+  GList *logical_monitor_configs;
+  GList *l;
+
+  g_variant_builder_init (&config_builder, G_VARIANT_TYPE (CONFIG_FORMAT));
+
+  logical_monitor_configs =
+    cc_display_config_get_logical_logical_monitor_configs (config);
+  for (l = logical_monitor_configs; l; l = l->next)
+    {
+      CcDisplayLogicalMonitorConfig *logical_monitor_config = l->data;
+      GVariantBuilder monitor_configs_builder;
+      GList *monitor_configs;
+      GList *k;
+      int x, y;
+      double scale;
+      gboolean is_primary;
+
+      g_variant_builder_init (&monitor_configs_builder,
+                              G_VARIANT_TYPE (MONITOR_CONFIGS_FORMAT));
+      monitor_configs =
+        cc_display_logical_monitor_config_get_monitor_configs (logical_monitor_config);
+      for (k = monitor_configs; k; k = k->next)
+        {
+          CcDisplayMonitorConfig *monitor_config = k->data;
+          CcDisplayMonitor *monitor;
+          CcDisplayMode *mode;
+          const char *connector;
+          int resolution_width;
+          int resolution_height;
+          double refresh_rate;
+
+          monitor = cc_display_monitor_config_get_monitor (monitor_config);
+          connector = cc_display_monitor_get_connector (monitor);
+          mode = cc_display_monitor_config_get_mode (monitor_config);
+          cc_display_mode_get_resolution (mode,
+                                          &resolution_width, &resolution_height);
+          refresh_rate = cc_display_mode_get_refresh_rate (mode);
+
+          g_variant_builder_add (&monitor_configs_builder, MONITOR_CONFIG_FORMAT,
+                                 connector,
+                                 (int32_t) resolution_width,
+                                 (int32_t) resolution_height,
+                                 refresh_rate,
+                                 NULL);
+        }
+
+      cc_display_logical_monitor_config_get_position (logical_monitor_config,
+                                                      &x, &y);
+      scale =
+        cc_display_logical_monitor_config_get_scale (logical_monitor_config);
+      is_primary =
+        cc_display_logical_monitor_config_is_primary (logical_monitor_config);
+
+      g_variant_builder_add (&config_builder, LOGICAL_MONITOR_CONFIG_FORMAT,
+                             (int32_t) x,
+                             (int32_t) y,
+                             scale,
+                             is_primary,
+                             &monitor_configs_builder);
+    }
+
+  return g_variant_builder_end (&config_builder);
+}
+
+gboolean
+cc_display_config_manager_apply (CcDisplayConfigManager *manager,
+                                 CcDisplayState *state,
+                                 CcDisplayConfig *config,
+                                 GError **error)
+{
+  CcDbusDisplayConfig *proxy = manager->proxy;
+  unsigned int serial;
+  CcDisplayConfigMethod method;
+  GVariant *config_variant;
+
+  serial = cc_display_state_get_serial (state);
+  method = CC_DISPLAY_METHOD_TEMPORARY;
+  config_variant = create_monitors_config_variant (state, config);
+
+  g_print ("%s\n", g_variant_print (config_variant, TRUE));
+
+  return cc_dbus_display_config_call_apply_monitors_config_sync (proxy,
+                                                                 serial,
+                                                                 method,
+                                                                 config_variant,
+                                                                 NULL,
+                                                                 error);
 }
 
 CcDisplayConfigManager *

@@ -23,6 +23,8 @@
 #include <glib-object.h>
 #include <stdint.h>
 
+#include <stdio.h>
+
 #define CC_DBUS_DISPLAY_CONFIG_MODE_FLAGS_PREFERRED (1 << 0)
 #define CC_DBUS_DISPLAY_CONFIG_MODE_FLAGS_CURRENT (1 << 1)
 
@@ -69,6 +71,26 @@ struct _CcDisplayState
   double *supported_scales;
   int n_supported_scales;
 };
+
+typedef struct _CcDisplayMonitorConfig
+{
+  CcDisplayMonitor *monitor;
+  CcDisplayMode *mode;
+} CcDisplayMonitorConfig;
+
+typedef struct _CcDisplayLogicalMonitorConfig
+{
+  int x;
+  int y;
+  int scale;
+  GList *monitor_configs;
+  bool is_primary;
+} CcDisplayLogicalMonitorConfig;
+
+typedef struct _CcDisplayConfig
+{
+  GList *logical_monitor_configs;
+} CcDisplayConfig;
 
 const char *
 cc_display_monitor_get_connector (CcDisplayMonitor *monitor)
@@ -533,4 +555,127 @@ cc_display_state_free (CcDisplayState *state)
   g_list_free_full (state->monitors,
                     (GDestroyNotify) cc_display_monitor_free);
   g_free (state);
+}
+
+CcDisplayMonitor *
+cc_display_monitor_config_get_monitor (CcDisplayMonitorConfig *monitor_config)
+{
+  return monitor_config->monitor;
+}
+
+CcDisplayMode *
+cc_display_monitor_config_get_mode (CcDisplayMonitorConfig *monitor_config)
+{
+  return monitor_config->mode;
+}
+
+CcDisplayLogicalMonitorConfig *
+cc_display_logical_monitor_config_new (void)
+{
+  return g_new0 (CcDisplayLogicalMonitorConfig, 1);
+}
+
+void
+cc_display_logical_monitor_config_set_position (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                int x,
+                                                int y)
+{
+  logical_monitor_config->x = x;
+  logical_monitor_config->y = y;
+}
+
+void
+cc_display_logical_monitor_config_set_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                             double scale)
+{
+  logical_monitor_config->scale = scale;
+}
+
+void
+cc_display_logical_monitor_config_set_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                  bool is_primary)
+{
+  logical_monitor_config->is_primary = is_primary;
+}
+
+void
+cc_display_logical_monitor_config_add_monitor (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                               CcDisplayMonitor *monitor,
+                                               CcDisplayMode *mode)
+{
+  CcDisplayMonitorConfig *monitor_config;
+
+  monitor_config = g_new0 (CcDisplayMonitorConfig, 1);
+  *monitor_config = (CcDisplayMonitorConfig) {
+    .monitor = monitor,
+    .mode = mode
+  };
+  fprintf(stderr, ":::: %s:%d %s() - \n", __FILE__, __LINE__, __func__);
+  logical_monitor_config->monitor_configs =
+    g_list_append (logical_monitor_config->monitor_configs, monitor_config);
+}
+
+bool
+cc_display_logical_monitor_config_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config)
+{
+  return logical_monitor_config->is_primary;
+}
+
+double
+cc_display_logical_monitor_config_get_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config)
+{
+  return logical_monitor_config->scale;
+}
+
+void
+cc_display_logical_monitor_config_get_position (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                int *x,
+                                                int *y)
+{
+  *x = logical_monitor_config->x;
+  *y = logical_monitor_config->y;
+}
+
+void
+cc_display_logical_monitor_config_calculate_layout (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                    cairo_rectangle_int_t *layout)
+{
+  CcDisplayMonitorConfig *monitor_config;
+
+  g_return_if_fail (logical_monitor_config->monitor_configs);
+
+  monitor_config = logical_monitor_config->monitor_configs->data;
+
+  *layout = (cairo_rectangle_int_t) {
+    .x = logical_monitor_config->x,
+    .y = logical_monitor_config->y,
+    .width = monitor_config->mode->resolution_width,
+    .height = monitor_config->mode->resolution_height
+  };
+}
+
+GList *
+cc_display_logical_monitor_config_get_monitor_configs (CcDisplayLogicalMonitorConfig *logical_monitor_config)
+{
+  return logical_monitor_config->monitor_configs;
+}
+
+CcDisplayConfig *
+cc_display_config_new (void)
+{
+  return g_new0 (CcDisplayConfig, 1);
+}
+
+void
+cc_display_config_add_logical_monitor (CcDisplayConfig *config,
+                                       CcDisplayLogicalMonitorConfig *logical_monitor_config)
+{
+  config->logical_monitor_configs =
+    g_list_append (config->logical_monitor_configs, logical_monitor_config);
+}
+
+GList *
+cc_display_config_get_logical_logical_monitor_configs (CcDisplayConfig *config)
+{
+  return config->logical_monitor_configs;
 }
