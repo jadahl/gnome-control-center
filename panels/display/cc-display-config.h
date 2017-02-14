@@ -26,18 +26,18 @@
 
 #include "cc-dbus-display-config.h"
 
-typedef struct _CcDisplayConfig CcDisplayConfig;
+typedef struct _CcDisplayState CcDisplayState;
 typedef struct _CcDisplayMonitor CcDisplayMonitor;
 typedef struct _CcDisplayLogicalMonitor CcDisplayLogicalMonitor;
 
 typedef struct _CcDisplayMode CcDisplayMode;
 
-CcDisplayConfig *cc_display_config_new_current (CcDbusDisplayConfig *proxy,
-                                                GError **error);
-void cc_display_config_free (CcDisplayConfig *config);
+CcDisplayState *cc_display_state_new_current (CcDbusDisplayConfig *proxy,
+                                              GError **error);
+void cc_display_state_free (CcDisplayState *state);
 
-GList *cc_display_config_get_monitors (CcDisplayConfig *config);
-GList *cc_display_config_get_logical_monitors (CcDisplayConfig *config);
+GList *cc_display_state_get_monitors (CcDisplayState *state);
+GList *cc_display_state_get_logical_monitors (CcDisplayState *state);
 
 GList * cc_display_logical_monitor_get_monitors (CcDisplayLogicalMonitor *logical_monitor);
 bool cc_display_logical_monitor_is_primary (CcDisplayLogicalMonitor *logical_monitor);

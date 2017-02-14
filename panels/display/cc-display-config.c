@@ -55,7 +55,7 @@ typedef struct _CcDisplayLogicalMonitor
   bool is_primary;
 } CcDisplayLogicalMonitor;
 
-struct _CcDisplayConfig
+struct _CcDisplayState
 {
   GList *monitors;
   GList *logical_monitors;
@@ -115,15 +115,15 @@ cc_display_mode_get_preferred_scale (CcDisplayMode *mode)
 }
 
 GList *
-cc_display_config_get_monitors (CcDisplayConfig *config)
+cc_display_state_get_monitors (CcDisplayState *state)
 {
-  return config->monitors;
+  return state->monitors;
 }
 
 GList *
-cc_display_config_get_logical_monitors (CcDisplayConfig *config)
+cc_display_state_get_logical_monitors (CcDisplayState *state)
 {
-  return config->logical_monitors;
+  return state->logical_monitors;
 }
 
 #define MODE_FORMAT "(iidiu)"
@@ -214,13 +214,13 @@ cc_display_monitor_new_from_variant (GVariant *monitor_variant)
 #undef MONITORS_FORMAT
 
 static void
-get_monitors_from_variant (CcDisplayConfig *config,
+get_monitors_from_variant (CcDisplayState *state,
                            GVariant *monitors_variant)
 {
   GVariantIter monitor_iter;
   GVariant *monitor_variant;
 
-  g_assert (!config->monitors);
+  g_assert (!state->monitors);
 
   g_variant_iter_init (&monitor_iter, monitors_variant);
   while ((monitor_variant = g_variant_iter_next_value (&monitor_iter)))
@@ -228,14 +228,14 @@ get_monitors_from_variant (CcDisplayConfig *config,
       CcDisplayMonitor *monitor;
 
       monitor = cc_display_monitor_new_from_variant (monitor_variant);
-      config->monitors = g_list_append (config->monitors, monitor);
+      state->monitors = g_list_append (state->monitors, monitor);
 
       g_variant_unref (monitor_variant);
     }
 }
 
 static CcDisplayMonitor *
-monitor_from_spec (CcDisplayConfig *config,
+monitor_from_spec (CcDisplayState *state,
                    const char *connector,
                    const char *vendor,
                    const char *product,
@@ -243,7 +243,7 @@ monitor_from_spec (CcDisplayConfig *config,
 {
   GList *l;
 
-  for (l = config->monitors; l; l = l->next)
+  for (l = state->monitors; l; l = l->next)
     {
       CcDisplayMonitor *monitor = l->data;
 
@@ -258,7 +258,7 @@ monitor_from_spec (CcDisplayConfig *config,
 }
 
 static CcDisplayLogicalMonitor *
-cc_display_logical_monitor_new_from_variant (CcDisplayConfig *config,
+cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
                                              GVariant *logical_monitor_variant)
 {
   CcDisplayLogicalMonitor *logical_monitor;
@@ -300,7 +300,7 @@ cc_display_logical_monitor_new_from_variant (CcDisplayConfig *config,
       g_variant_get (monitor_spec_variant, MONITOR_SPEC_FORMAT,
                      &connector, &vendor, &product, &serial);
 
-      monitor = monitor_from_spec (config, connector, vendor, product, serial);
+      monitor = monitor_from_spec (state, connector, vendor, product, serial);
       if (!monitor)
         {
           g_warning ("Couldn't find monitor given spec: %s, %s, %s, %s\n",
@@ -351,7 +351,7 @@ cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor)
 }
 
 static void
-get_logical_monitors_from_variant (CcDisplayConfig *config,
+get_logical_monitors_from_variant (CcDisplayState *state,
                                    GVariant *logical_monitors_variant)
 {
   GVariantIter logical_monitor_iter;
@@ -367,21 +367,22 @@ get_logical_monitors_from_variant (CcDisplayConfig *config,
         break;
 
       logical_monitor =
-        cc_display_logical_monitor_new_from_variant (config,
+        cc_display_logical_monitor_new_from_variant (state,
                                                      logical_monitor_variant);
-      config->logical_monitors = g_list_append (config->logical_monitors,
-                                                logical_monitor);
+      state->logical_monitors = g_list_append (state->logical_monitors,
+                                               logical_monitor);
     }
 }
 
 static void
-get_max_screen_size_from_variant (CcDisplayConfig *config,
-                                  GVariant *logical_monitors_variant)
+get_max_screen_size_from_variant (CcDisplayState *state,
+                                  GVariant *max_screen_size_variant)
 {
 }
 
+
 static bool
-get_current_state (CcDisplayConfig *config,
+get_current_state (CcDisplayState *state,
                    CcDbusDisplayConfig *proxy,
                    GError **error)
 {
@@ -399,9 +400,9 @@ get_current_state (CcDisplayConfig *config,
                                                            error))
     return false;
 
-  get_monitors_from_variant (config, monitors_variant);
-  get_logical_monitors_from_variant (config, logical_monitors_variant);
-  get_max_screen_size_from_variant (config, max_screen_size_variant);
+  get_monitors_from_variant (state, monitors_variant);
+  get_logical_monitors_from_variant (state, logical_monitors_variant);
+  get_max_screen_size_from_variant (state, max_screen_size_variant);
 
   return true;
 }
@@ -413,26 +414,26 @@ cc_display_monitor_free (CcDisplayMonitor *monitor)
   g_free (monitor);
 }
 
-CcDisplayConfig *
-cc_display_config_new_current (CcDbusDisplayConfig *proxy,
-                               GError **error)
+CcDisplayState *
+cc_display_state_new_current (CcDbusDisplayConfig *proxy,
+                              GError **error)
 {
-  g_autofree CcDisplayConfig *config = NULL;
+  g_autofree CcDisplayState *state = NULL;
 
-  config = g_new0 (CcDisplayConfig, 1);
+  state = g_new0 (CcDisplayState, 1);
 
-  if (!get_current_state (config, proxy, error))
+  if (!get_current_state (state, proxy, error))
     return NULL;
 
-  return g_steal_pointer (&config);
+  return g_steal_pointer (&state);
 }
 
 void
-cc_display_config_free (CcDisplayConfig *config)
+cc_display_state_free (CcDisplayState *state)
 {
-  g_list_free_full (config->logical_monitors,
+  g_list_free_full (state->logical_monitors,
                     (GDestroyNotify) cc_display_logical_monitor_free);
-  g_list_free_full (config->monitors,
+  g_list_free_full (state->monitors,
                     (GDestroyNotify) cc_display_monitor_free);
-  g_free (config);
+  g_free (state);
 }

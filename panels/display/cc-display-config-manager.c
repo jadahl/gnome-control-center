@@ -36,11 +36,11 @@ G_DEFINE_TYPE_WITH_CODE (CcDisplayConfigManager, cc_display_config_manager,
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
                                                 cc_display_config_manager_initable_init_iface));
 
-CcDisplayConfig *
-cc_display_config_manager_new_current (CcDisplayConfigManager *manager,
-                                       GError **error)
+CcDisplayState *
+cc_display_config_manager_new_current_state (CcDisplayConfigManager *manager,
+                                             GError **error)
 {
-  return cc_display_config_new_current (manager->proxy, error);
+  return cc_display_state_new_current (manager->proxy, error);
 }
 
 CcDisplayConfigManager *

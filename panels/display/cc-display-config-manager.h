@@ -25,7 +25,7 @@
 G_DECLARE_FINAL_TYPE (CcDisplayConfigManager, cc_display_config_manager,
                       CC, DISPLAY_CONFIG_MANAGER, GObject)
 
-CcDisplayConfig * cc_display_config_manager_new_current (CcDisplayConfigManager *manager,
-                                                         GError **error);
+CcDisplayState * cc_display_config_manager_new_current_state (CcDisplayConfigManager *manager,
+							      GError **error);
 
 CcDisplayConfigManager * cc_display_config_manager_new (GError **error);

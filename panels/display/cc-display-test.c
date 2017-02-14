@@ -78,18 +78,18 @@ list_logical_monitor_monitors (CcDisplayLogicalMonitor *logical_monitor)
 static int
 list_monitors (CcDisplayConfigManager *config_manager)
 {
-  CcDisplayConfig *config;
+  CcDisplayState *state;
   GError *error = NULL;
   GList *l;
 
-  config = cc_display_config_manager_new_current (config_manager, &error);
-  if (!config)
+  state = cc_display_config_manager_new_current_state (config_manager, &error);
+  if (!state)
     {
-      g_print ("Failed to get current config: %s\n", error->message);
+      g_print ("Failed to get current state: %s\n", error->message);
       return EXIT_FAILURE;
     }
 
-  for (l = cc_display_config_get_monitors (config); l; l = l->next)
+  for (l = cc_display_state_get_monitors (state); l; l = l->next)
     {
       CcDisplayMonitor *monitor = l->data;
       const char *connector = cc_display_monitor_get_connector (monitor);
@@ -103,7 +103,7 @@ list_monitors (CcDisplayConfigManager *config_manager)
       list_modes (monitor);
     }
 
-  for (l = cc_display_config_get_logical_monitors (config); l; l = l->next)
+  for (l = cc_display_state_get_logical_monitors (state); l; l = l->next)
     {
       CcDisplayLogicalMonitor *logical_monitor = l->data;
       cairo_rectangle_int_t layout;
