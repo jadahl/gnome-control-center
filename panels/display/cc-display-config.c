@@ -65,6 +65,7 @@ struct _CcDisplayState
   GList *monitors;
   GList *logical_monitors;
 
+  gboolean has_max_screen_size;
   int max_screen_width;
   int max_screen_height;
 
@@ -172,16 +173,12 @@ cc_display_state_get_max_screen_size (CcDisplayState *state,
                                       int *max_width,
                                       int *max_height)
 {
-  if (state->max_screen_width > 0 && state->max_screen_height > 0)
-    {
-      *max_width = state->max_screen_width;
-      *max_height = state->max_screen_height;
-      return TRUE;
-    }
-  else
-    {
-      return FALSE;
-    }
+  if (!state->has_max_screen_size)
+    return FALSE;
+
+  *max_width = state->max_screen_width;
+  *max_height = state->max_screen_height;
+  return TRUE;
 }
 
 void
@@ -460,6 +457,7 @@ static void
 get_max_screen_size_from_variant (CcDisplayState *state,
                                   GVariant *max_screen_size_variant)
 {
+  state->has_max_screen_size = TRUE;
   g_variant_get (max_screen_size_variant, "(ii)",
                  &state->max_screen_width,
                  &state->max_screen_height);
@@ -504,14 +502,14 @@ get_current_state (CcDisplayState *state,
   GVariant *logical_monitors_variant;
   GVariant *supported_scales_variant;
   GVariant *max_screen_size_variant;
+  GVariant *properties_variant;
 
   if (!cc_dbus_display_config_call_get_current_state_sync (proxy,
                                                            &serial,
                                                            &monitors_variant,
                                                            &logical_monitors_variant,
                                                            &supported_scales_variant,
-                                                           &max_screen_size_variant,
-                                                           NULL,
+                                                           &properties_variant,
                                                            NULL,
                                                            error))
     return false;
@@ -521,7 +519,12 @@ get_current_state (CcDisplayState *state,
   get_monitors_from_variant (state, monitors_variant);
   get_logical_monitors_from_variant (state, logical_monitors_variant);
   get_supported_scales_from_variant (state, supported_scales_variant);
-  get_max_screen_size_from_variant (state, max_screen_size_variant);
+
+  max_screen_size_variant = g_variant_lookup_value (properties_variant,
+                                                    "max_screen_size",
+                                                    G_VARIANT_TYPE ("(ii)"));
+  if (max_screen_size_variant)
+    get_max_screen_size_from_variant (state, max_screen_size_variant);
 
   return true;
 }
