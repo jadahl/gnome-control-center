@@ -139,20 +139,33 @@ cc_display_config_manager_apply (CcDisplayConfigManager *manager,
   CcDbusDisplayConfig *proxy = manager->proxy;
   unsigned int serial;
   CcDisplayConfigMethod method;
-  GVariant *config_variant;
+  GVariant *logical_monitor_configs_variant;
+  GVariantBuilder properties_builder;
+  CcDisplayLayoutMode layout_mode;
 
   serial = cc_display_state_get_serial (state);
   method = CC_DISPLAY_METHOD_TEMPORARY;
-  config_variant = create_monitors_config_variant (state, config);
+  logical_monitor_configs_variant =
+    create_monitors_config_variant (state, config);
+  layout_mode = cc_display_config_get_layout_mode (config);
 
-  g_print ("%s\n", g_variant_print (config_variant, TRUE));
+  g_variant_builder_init (&properties_builder, G_VARIANT_TYPE ("a{sv}"));
 
-  return cc_dbus_display_config_call_apply_monitors_config_sync (proxy,
-                                                                 serial,
-                                                                 method,
-                                                                 config_variant,
-                                                                 NULL,
-                                                                 error);
+  if (layout_mode != CC_DISPLAY_LAYOUT_MODE_LOGICAL)
+    g_variant_builder_add (&properties_builder,
+                           "{sv}", "layout-mode",
+                           g_variant_new_uint32 (layout_mode));
+
+  g_print ("%s\n", g_variant_print (logical_monitor_configs_variant, TRUE));
+
+  return cc_dbus_display_config_call_apply_monitors_config_sync (
+    proxy,
+    serial,
+    method,
+    logical_monitor_configs_variant,
+    g_variant_builder_end (&properties_builder),
+    NULL,
+    error);
 }
 
 CcDisplayConfigManager *

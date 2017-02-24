@@ -26,6 +26,12 @@
 
 #include "cc-dbus-display-config.h"
 
+typedef enum _CcDisplayLayoutMode
+{
+  CC_DISPLAY_LAYOUT_MODE_LOGICAL = 1,
+  CC_DISPLAY_LAYOUT_MODE_PHYSICAL = 2
+} CcDisplayLayoutMode;
+
 typedef struct _CcDisplayState CcDisplayState;
 typedef struct _CcDisplayMonitor CcDisplayMonitor;
 typedef struct _CcDisplayLogicalMonitor CcDisplayLogicalMonitor;
@@ -105,6 +111,10 @@ void cc_display_logical_monitor_config_calculate_layout (CcDisplayLogicalMonitor
 GList * cc_display_logical_monitor_config_get_monitor_configs (CcDisplayLogicalMonitorConfig *logical_monitor_config);
 
 CcDisplayConfig * cc_display_config_new (void);
+
+void cc_display_config_set_layout_mode (CcDisplayConfig *config,
+                                        CcDisplayLayoutMode layout_mode);
+CcDisplayLayoutMode cc_display_config_get_layout_mode (CcDisplayConfig *config);
 void cc_display_config_add_logical_monitor (CcDisplayConfig *config,
                                             CcDisplayLogicalMonitorConfig *logical_monitor_config);
 GList * cc_display_config_get_logical_logical_monitor_configs (CcDisplayConfig *config);

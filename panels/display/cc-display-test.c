@@ -33,6 +33,7 @@
 static CcDisplayState *current_state = NULL;
 
 static CcDisplayConfig *pending_config = NULL;
+static CcDisplayLayoutMode pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
 static CcDisplayLogicalMonitorConfig *pending_logical_monitor_config = NULL;
 static int pending_logical_monitor_x;
 static int pending_logical_monitor_y;
@@ -194,6 +195,8 @@ finalize_pending_logical_monitor_config (void)
   if (!pending_logical_monitor_config)
     return FALSE;
 
+  cc_display_config_set_layout_mode (pending_config,
+                                     pending_layout_mode);
   cc_display_logical_monitor_config_set_position (pending_logical_monitor_config,
                                                   pending_logical_monitor_x,
                                                   pending_logical_monitor_y);
@@ -202,6 +205,7 @@ finalize_pending_logical_monitor_config (void)
 
   cc_display_config_add_logical_monitor (pending_config,
                                          pending_logical_monitor_config);
+
   pending_logical_monitor_config = NULL;
 
   return TRUE;
@@ -416,6 +420,8 @@ set_monitors (int argc,
     { "scale", required_argument, 0, 's' },
     { "primary", no_argument, 0, 'p' },
     { "monitor", required_argument, 0, 'M' },
+    { "logical-layout-mode", no_argument, 0, 0 },
+    { "physical-layout-mode", no_argument, 0, 0 },
     { "help", no_argument, 0, 'h' },
     { }
   };
@@ -445,6 +451,17 @@ set_monitors (int argc,
 
       switch (c)
         {
+        case 0:
+          if (g_str_equal (options[option_index].name,
+                           "logical-layout-mode"))
+            pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
+          else if (g_str_equal (options[option_index].name,
+                                "physical-layout-mode"))
+            pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_PHYSICAL;
+          else
+            g_assert_not_reached ();
+
+          break;
         case 'L':
           if (!handle_logical_monitor_arg (error))
             return FALSE;
