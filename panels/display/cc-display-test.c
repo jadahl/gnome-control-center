@@ -417,6 +417,7 @@ set_monitors (int argc,
 {
   struct option options[] = {
     { "logical-monitor", no_argument, 0, 'L' },
+    { "persistent", no_argument, 0, 'P' },
     { "x", required_argument, 0, 'x' },
     { "y", required_argument, 0, 'y' },
     { "scale", required_argument, 0, 's' },
@@ -428,6 +429,7 @@ set_monitors (int argc,
     { }
   };
   CcDisplayConfigManager *config_manager;
+  CcDisplayConfigMethod method = CC_DISPLAY_METHOD_TEMPORARY;
 
   config_manager = cc_display_config_manager_new (error);
   if (!config_manager)
@@ -445,7 +447,7 @@ set_monitors (int argc,
       int c;
       int option_index;
 
-      c = getopt_long (argc, argv, "Lx:dy:ds:dpM:sh",
+      c = getopt_long (argc, argv, "LPx:dy:ds:dt:spM:sh",
                        options, &option_index);
 
       if (c < 0)
@@ -475,6 +477,10 @@ set_monitors (int argc,
         case 'L':
           if (!handle_logical_monitor_arg (error))
             return FALSE;
+          break;
+
+        case 'P':
+          method = CC_DISPLAY_METHOD_PERSISTENT;
           break;
 
         case 'x':
@@ -512,6 +518,7 @@ set_monitors (int argc,
   return cc_display_config_manager_apply (config_manager,
                                           current_state,
                                           pending_config,
+                                          method,
                                           error);
 }
 

@@ -32,6 +32,13 @@ typedef enum _CcDisplayLayoutMode
   CC_DISPLAY_LAYOUT_MODE_PHYSICAL = 2
 } CcDisplayLayoutMode;
 
+typedef enum _CcDisplayConfigMethod
+{
+  CC_DISPLAY_METHOD_VERIFY = 0,
+  CC_DISPLAY_METHOD_TEMPORARY = 1,
+  CC_DISPLAY_METHOD_PERSISTENT = 2
+} CcDisplayConfigMethod;
+
 typedef struct _CcDisplayState CcDisplayState;
 typedef struct _CcDisplayMonitor CcDisplayMonitor;
 typedef struct _CcDisplayLogicalMonitor CcDisplayLogicalMonitor;

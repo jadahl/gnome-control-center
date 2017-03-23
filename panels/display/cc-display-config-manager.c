@@ -127,17 +127,16 @@ gboolean
 cc_display_config_manager_apply (CcDisplayConfigManager *manager,
                                  CcDisplayState *state,
                                  CcDisplayConfig *config,
+                                 CcDisplayConfigMethod method,
                                  GError **error)
 {
   CcDbusDisplayConfig *proxy = manager->proxy;
   unsigned int serial;
-  CcDisplayConfigMethod method;
   GVariant *logical_monitor_configs_variant;
   GVariantBuilder properties_builder;
   CcDisplayLayoutMode layout_mode;
 
   serial = cc_display_state_get_serial (state);
-  method = CC_DISPLAY_METHOD_TEMPORARY;
   logical_monitor_configs_variant =
     create_monitors_config_variant (state, config);
 
