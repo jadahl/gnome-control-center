@@ -74,6 +74,7 @@ create_monitors_config_variant (CcDisplayState *state,
       GList *k;
       int x, y;
       double scale;
+      CcDisplayTransform transform;
       gboolean is_primary;
 
       g_variant_builder_init (&monitor_configs_builder,
@@ -109,6 +110,8 @@ create_monitors_config_variant (CcDisplayState *state,
                                                       &x, &y);
       scale =
         cc_display_logical_monitor_config_get_scale (logical_monitor_config);
+      transform =
+        cc_display_logical_monitor_config_get_transform (logical_monitor_config);
       is_primary =
         cc_display_logical_monitor_config_is_primary (logical_monitor_config);
 
@@ -116,6 +119,7 @@ create_monitors_config_variant (CcDisplayState *state,
                              (int32_t) x,
                              (int32_t) y,
                              scale,
+                             (uint32_t) transform,
                              is_primary,
                              &monitor_configs_builder);
     }

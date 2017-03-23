@@ -39,6 +39,18 @@ typedef enum _CcDisplayConfigMethod
   CC_DISPLAY_METHOD_PERSISTENT = 2
 } CcDisplayConfigMethod;
 
+typedef enum
+{
+  CC_DISPLAY_TRANSFORM_NORMAL,
+  CC_DISPLAY_TRANSFORM_90,
+  CC_DISPLAY_TRANSFORM_180,
+  CC_DISPLAY_TRANSFORM_270,
+  CC_DISPLAY_TRANSFORM_FLIPPED,
+  CC_DISPLAY_TRANSFORM_FLIPPED_90,
+  CC_DISPLAY_TRANSFORM_FLIPPED_180,
+  CC_DISPLAY_TRANSFORM_FLIPPED_270,
+} CcDisplayTransform;
+
 typedef struct _CcDisplayState CcDisplayState;
 typedef struct _CcDisplayMonitor CcDisplayMonitor;
 typedef struct _CcDisplayLogicalMonitor CcDisplayLogicalMonitor;
@@ -68,6 +80,7 @@ bool cc_display_logical_monitor_is_primary (CcDisplayLogicalMonitor *logical_mon
 void cc_display_logical_monitor_calculate_layout (CcDisplayLogicalMonitor *logical_monitor,
                                                   cairo_rectangle_int_t *layout);
 int cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor);
+CcDisplayTransform cc_display_logical_monitor_get_transform (CcDisplayLogicalMonitor *logical_monitor);
 
 bool cc_display_monitor_is_active (CcDisplayMonitor *monitor);
 const char * cc_display_monitor_get_connector (CcDisplayMonitor *monitor);
@@ -97,6 +110,9 @@ void cc_display_logical_monitor_config_set_position (CcDisplayLogicalMonitorConf
 void cc_display_logical_monitor_config_set_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config,
                                                   double scale);
 
+void cc_display_logical_monitor_config_set_transform (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                      CcDisplayTransform             transform);
+
 void cc_display_logical_monitor_config_set_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config,
                                                        bool is_primary);
 
@@ -107,6 +123,8 @@ void cc_display_logical_monitor_config_add_monitor (CcDisplayLogicalMonitorConfi
 bool cc_display_logical_monitor_config_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config);
 
 double cc_display_logical_monitor_config_get_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config);
+
+CcDisplayTransform cc_display_logical_monitor_config_get_transform (CcDisplayLogicalMonitorConfig *logical_monitor_config);
 
 void cc_display_logical_monitor_config_get_position (CcDisplayLogicalMonitorConfig *logical_monitor_config,
                                                      int *x,

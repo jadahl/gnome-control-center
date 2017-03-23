@@ -39,6 +39,7 @@ static CcDisplayLogicalMonitorConfig *pending_logical_monitor_config = NULL;
 static int pending_logical_monitor_x;
 static int pending_logical_monitor_y;
 static double pending_logical_monitor_scale;
+static CcDisplayTransform pending_logical_monitor_transform;
 
 static void
 print_usage (FILE *stream)
@@ -116,6 +117,32 @@ list_logical_monitor_monitors (CcDisplayLogicalMonitor *logical_monitor)
     }
 }
 
+static const char *
+transform_to_str (CcDisplayTransform transform)
+{
+  switch (transform)
+    {
+    case CC_DISPLAY_TRANSFORM_NORMAL:
+      return "normal";
+    case CC_DISPLAY_TRANSFORM_90:
+      return "left";
+    case CC_DISPLAY_TRANSFORM_180:
+      return "upside down";
+    case CC_DISPLAY_TRANSFORM_270:
+      return "right";
+    case CC_DISPLAY_TRANSFORM_FLIPPED:
+      return "flipped";
+    case CC_DISPLAY_TRANSFORM_FLIPPED_90:
+      return "left flipped";
+    case CC_DISPLAY_TRANSFORM_FLIPPED_180:
+      return "upside down flipped";
+    case CC_DISPLAY_TRANSFORM_FLIPPED_270:
+      return "right flipped";
+    }
+
+  g_assert_not_reached ();
+}
+
 static gboolean
 list_monitors (GError **error)
 {
@@ -155,15 +182,18 @@ list_monitors (GError **error)
       cairo_rectangle_int_t layout;
       bool is_primary;
       double scale;
+      CcDisplayTransform transform;
 
       cc_display_logical_monitor_calculate_layout (logical_monitor, &layout);
       is_primary = cc_display_logical_monitor_is_primary (logical_monitor);
       scale = cc_display_logical_monitor_get_scale (logical_monitor);
+      transform = cc_display_logical_monitor_get_transform (logical_monitor);
 
-      g_print ("Logical monitor [ %dx%d+%d+%d ]%s, scale = %g\n",
+      g_print ("Logical monitor [ %dx%d+%d+%d ]%s, scale = %g, transform = %s\n",
                layout.width, layout.height, layout.x, layout.y,
                is_primary ? ", PRIMARY" : "",
-               scale);
+               scale,
+               transform_to_str (transform));
       list_logical_monitor_monitors (logical_monitor);
     }
 
@@ -204,6 +234,8 @@ finalize_pending_logical_monitor_config (void)
                                                   pending_logical_monitor_y);
   cc_display_logical_monitor_config_set_scale (pending_logical_monitor_config,
                                                pending_logical_monitor_scale);
+  cc_display_logical_monitor_config_set_transform (pending_logical_monitor_config,
+                                                   pending_logical_monitor_transform);
 
   cc_display_config_add_logical_monitor (pending_config,
                                          pending_logical_monitor_config);
@@ -289,6 +321,32 @@ handle_logical_monitor_property_arg (int option,
 
         pending_logical_monitor_scale = scale;
 
+        break;
+      }
+    case 't':
+      {
+        CcDisplayTransform transform;
+
+        if (g_str_equal (value, "normal"))
+          {
+            transform = CC_DISPLAY_TRANSFORM_NORMAL;
+          }
+        else if (g_str_equal (value, "right"))
+          {
+            transform = CC_DISPLAY_TRANSFORM_270;
+          }
+        else if (g_str_equal (value, "left"))
+          {
+            transform = CC_DISPLAY_TRANSFORM_90;
+          }
+        else
+          {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                         "Invalid transform '%s'", value);
+            return FALSE;
+          }
+
+        pending_logical_monitor_transform = transform;
         break;
       }
     default:
@@ -486,6 +544,7 @@ set_monitors (int argc,
         case 'x':
         case 'y':
         case 's':
+        case 't':
           if (!handle_logical_monitor_property_arg (c, optarg, error))
             return FALSE;
           break;

@@ -54,6 +54,7 @@ typedef struct _CcDisplayLogicalMonitor
   int x;
   int y;
   int scale;
+  CcDisplayTransform transform;
   GList *monitors;
   bool is_primary;
 } CcDisplayLogicalMonitor;
@@ -84,6 +85,7 @@ typedef struct _CcDisplayLogicalMonitorConfig
   int x;
   int y;
   int scale;
+  CcDisplayTransform transform;
   GList *monitor_configs;
   bool is_primary;
 } CcDisplayLogicalMonitorConfig;
@@ -198,7 +200,7 @@ cc_display_state_get_supported_scales (CcDisplayState *state,
 #define MONITOR_FORMAT "(" MONITOR_SPEC_FORMAT MODES_FORMAT "@a{sv})"
 #define MONITORS_FORMAT "a" MONITOR_FORMAT
 
-#define LOGICAL_MONITOR_FORMAT "(iidba" MONITOR_SPEC_FORMAT "@a{sv})"
+#define LOGICAL_MONITOR_FORMAT "(iiduba" MONITOR_SPEC_FORMAT "@a{sv})"
 #define LOGICAL_MONITORS_FORMAT "a" LOGICAL_MONITOR_FORMAT
 
 static CcDisplayMode *
@@ -332,6 +334,7 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
   GVariant *monitor_spec_variant;
   int x, y;
   double scale;
+  CcDisplayTransform transform;
   gboolean is_primary;
   GVariant *properties;
 
@@ -341,6 +344,7 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
                  &x,
                  &y,
                  &scale,
+                 &transform,
                  &is_primary,
                  &monitor_specs_iter,
                  &properties);
@@ -380,6 +384,7 @@ cc_display_logical_monitor_new_from_variant (CcDisplayState *state,
   logical_monitor->x = x;
   logical_monitor->y = y;
   logical_monitor->scale = scale;
+  logical_monitor->transform = transform;
   logical_monitor->is_primary = is_primary;
 
   return logical_monitor;
@@ -426,6 +431,12 @@ int
 cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor)
 {
   return logical_monitor->scale;
+}
+
+CcDisplayTransform
+cc_display_logical_monitor_get_transform (CcDisplayLogicalMonitor *logical_monitor)
+{
+  return logical_monitor->transform;
 }
 
 static void
@@ -597,6 +608,13 @@ cc_display_logical_monitor_config_set_scale (CcDisplayLogicalMonitorConfig *logi
 }
 
 void
+cc_display_logical_monitor_config_set_transform (CcDisplayLogicalMonitorConfig *logical_monitor_config,
+                                                 CcDisplayTransform             transform)
+{
+  logical_monitor_config->transform = transform;
+}
+
+void
 cc_display_logical_monitor_config_set_is_primary (CcDisplayLogicalMonitorConfig *logical_monitor_config,
                                                   bool is_primary)
 {
@@ -630,6 +648,12 @@ double
 cc_display_logical_monitor_config_get_scale (CcDisplayLogicalMonitorConfig *logical_monitor_config)
 {
   return logical_monitor_config->scale;
+}
+
+CcDisplayTransform
+cc_display_logical_monitor_config_get_transform (CcDisplayLogicalMonitorConfig *logical_monitor_config)
+{
+  return logical_monitor_config->transform;
 }
 
 void
