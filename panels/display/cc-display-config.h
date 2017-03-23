@@ -114,7 +114,8 @@ CcDisplayConfig * cc_display_config_new (void);
 
 void cc_display_config_set_layout_mode (CcDisplayConfig *config,
                                         CcDisplayLayoutMode layout_mode);
-CcDisplayLayoutMode cc_display_config_get_layout_mode (CcDisplayConfig *config);
+gboolean cc_display_config_get_layout_mode (CcDisplayConfig *config,
+                                            CcDisplayLayoutMode *layout_mode);
 void cc_display_config_add_logical_monitor (CcDisplayConfig *config,
                                             CcDisplayLogicalMonitorConfig *logical_monitor_config);
 GList * cc_display_config_get_logical_logical_monitor_configs (CcDisplayConfig *config);

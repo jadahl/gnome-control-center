@@ -33,6 +33,7 @@
 static CcDisplayState *current_state = NULL;
 
 static CcDisplayConfig *pending_config = NULL;
+static gboolean pending_layout_mode_set = FALSE;
 static CcDisplayLayoutMode pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
 static CcDisplayLogicalMonitorConfig *pending_logical_monitor_config = NULL;
 static int pending_logical_monitor_x;
@@ -195,8 +196,9 @@ finalize_pending_logical_monitor_config (void)
   if (!pending_logical_monitor_config)
     return FALSE;
 
-  cc_display_config_set_layout_mode (pending_config,
-                                     pending_layout_mode);
+  if (pending_layout_mode_set)
+    cc_display_config_set_layout_mode (pending_config,
+                                       pending_layout_mode);
   cc_display_logical_monitor_config_set_position (pending_logical_monitor_config,
                                                   pending_logical_monitor_x,
                                                   pending_logical_monitor_y);
@@ -454,12 +456,20 @@ set_monitors (int argc,
         case 0:
           if (g_str_equal (options[option_index].name,
                            "logical-layout-mode"))
-            pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
+            {
+              pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
+              pending_layout_mode_set = TRUE;
+            }
           else if (g_str_equal (options[option_index].name,
                                 "physical-layout-mode"))
-            pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_PHYSICAL;
+            {
+              pending_layout_mode = CC_DISPLAY_LAYOUT_MODE_PHYSICAL;
+              pending_layout_mode_set = TRUE;
+            }
           else
-            g_assert_not_reached ();
+            {
+              g_assert_not_reached ();
+            }
 
           break;
         case 'L':

@@ -91,6 +91,7 @@ typedef struct _CcDisplayLogicalMonitorConfig
 typedef struct _CcDisplayConfig
 {
   GList *logical_monitor_configs;
+  gboolean layout_mode_set;
   CcDisplayLayoutMode layout_mode;
 } CcDisplayConfig;
 
@@ -670,7 +671,6 @@ cc_display_config_new (void)
   CcDisplayConfig *config;
 
   config = g_new0 (CcDisplayConfig, 1);
-  config->layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
 
   return config;
 }
@@ -679,13 +679,23 @@ void
 cc_display_config_set_layout_mode (CcDisplayConfig *config,
                                    CcDisplayLayoutMode layout_mode)
 {
+  config->layout_mode_set = TRUE;
   config->layout_mode = layout_mode;
 }
 
-CcDisplayLayoutMode
-cc_display_config_get_layout_mode (CcDisplayConfig *config)
+gboolean
+cc_display_config_get_layout_mode (CcDisplayConfig *config,
+                                   CcDisplayLayoutMode *layout_mode)
 {
-  return config->layout_mode;
+  if (config->layout_mode_set)
+    {
+      *layout_mode = config->layout_mode;
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
 }
 
 void

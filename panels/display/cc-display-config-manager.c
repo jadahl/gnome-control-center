@@ -46,18 +46,11 @@ cc_display_config_manager_new_current_state (CcDisplayConfigManager *manager,
   return cc_display_state_new_current (manager->proxy, error);
 }
 
-typedef enum _CcDisplayConfigMethod
-{
-  CC_DISPLAY_METHOD_VERIFY = 0,
-  CC_DISPLAY_METHOD_TEMPORARY = 1,
-  CC_DISPLAY_METHOD_PERSISTENT = 2
-} CcDisplayConfigMethod;
-
 #define MONITOR_MODE_SPEC_FORMAT "(iid)"
 #define MONITOR_CONFIG_FORMAT "(s" MONITOR_MODE_SPEC_FORMAT "a{sv})"
 #define MONITOR_CONFIGS_FORMAT "a" MONITOR_CONFIG_FORMAT
 
-#define LOGICAL_MONITOR_CONFIG_FORMAT "(iidb" MONITOR_CONFIGS_FORMAT ")"
+#define LOGICAL_MONITOR_CONFIG_FORMAT "(iidub" MONITOR_CONFIGS_FORMAT ")"
 
 #define CONFIG_FORMAT "a" LOGICAL_MONITOR_CONFIG_FORMAT
 
@@ -147,14 +140,14 @@ cc_display_config_manager_apply (CcDisplayConfigManager *manager,
   method = CC_DISPLAY_METHOD_TEMPORARY;
   logical_monitor_configs_variant =
     create_monitors_config_variant (state, config);
-  layout_mode = cc_display_config_get_layout_mode (config);
 
   g_variant_builder_init (&properties_builder, G_VARIANT_TYPE ("a{sv}"));
-
-  if (layout_mode != CC_DISPLAY_LAYOUT_MODE_LOGICAL)
-    g_variant_builder_add (&properties_builder,
-                           "{sv}", "layout-mode",
-                           g_variant_new_uint32 (layout_mode));
+  if (cc_display_config_get_layout_mode (config, &layout_mode))
+    {
+      g_variant_builder_add (&properties_builder,
+                             "{sv}", "layout-mode",
+                             g_variant_new_uint32 (layout_mode));
+    }
 
   g_print ("%s\n", g_variant_print (logical_monitor_configs_variant, TRUE));
 
