@@ -58,6 +58,7 @@ print_help (void)
           "Commands:\n"
           "  list                       List current monitors and current configuration\n"
           "  set                        Set new configuration\n"
+          "  show                       Show monitor labels\n"
           "\n"
           "Options for 'set':\n"
           " -L, --logical-monitor       Add logical monitor\n"
@@ -584,6 +585,66 @@ set_monitors (int argc,
                                           error);
 }
 
+static gboolean
+show_monitor_labels (GError **error)
+{
+  GDBusProxy *proxy;
+  GVariantBuilder builder;
+  CcDisplayConfigManager *config_manager;
+  GList *l;
+  int number;
+
+  proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
+                                         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |
+                                         G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+                                         NULL,
+                                         "org.gnome.Shell",
+                                         "/org/gnome/Shell",
+                                         "org.gnome.Shell",
+                                         NULL,
+                                         error);
+  if (!proxy)
+    return FALSE;
+
+  config_manager = cc_display_config_manager_new (error);
+  if (!config_manager)
+    return FALSE;
+
+  current_state = cc_display_config_manager_new_current_state (config_manager,
+                                                               error);
+  if (!current_state)
+    return FALSE;
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+
+  number = 1;
+  for (l = cc_display_state_get_monitors (current_state); l; l = l->next)
+    {
+      CcDisplayMonitor *monitor = l->data;
+
+      g_variant_builder_add (&builder, "{sv}",
+                             cc_display_monitor_get_connector (monitor),
+                             g_variant_new_int32 (number));
+
+      number++;
+    }
+
+  g_dbus_proxy_call (proxy,
+                     "ShowMonitorLabels2",
+                     g_variant_new ("(a{sv})", &builder),
+                     G_DBUS_CALL_FLAGS_NONE,
+                     -1, NULL, NULL, NULL);
+
+  /*
+   * The shell will hide the labels if the D-Bus client goes away, so linger a
+   * bit before they go away.
+   */
+  sleep(20);
+
+  return TRUE;
+}
+
 int
 main (int argc,
       char *argv[])
@@ -625,6 +686,22 @@ main (int argc,
       if (!set_monitors (argc - 1, argv + 1, &error))
         {
           g_printerr ("Failed to set configuration: %s\n",
+                      error->message);
+          g_error_free (error);
+          return EXIT_FAILURE;
+        }
+      else
+        {
+          return EXIT_SUCCESS;
+        }
+    }
+  else if (g_str_equal (argv[1], "show"))
+    {
+      GError *error = NULL;
+
+      if (!show_monitor_labels (&error))
+        {
+          g_printerr ("Failed to show monitor labels: %s\n",
                       error->message);
           g_error_free (error);
           return EXIT_FAILURE;
