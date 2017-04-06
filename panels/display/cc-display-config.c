@@ -534,7 +534,7 @@ get_current_state (CcDisplayState *state,
   get_supported_scales_from_variant (state, supported_scales_variant);
 
   max_screen_size_variant = g_variant_lookup_value (properties_variant,
-                                                    "max_screen_size",
+                                                    "max-screen-size",
                                                     G_VARIANT_TYPE ("(ii)"));
   if (max_screen_size_variant)
     get_max_screen_size_from_variant (state, max_screen_size_variant);
