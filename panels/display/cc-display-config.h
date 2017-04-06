@@ -85,6 +85,7 @@ CcDisplayTransform cc_display_logical_monitor_get_transform (CcDisplayLogicalMon
 bool cc_display_monitor_is_active (CcDisplayMonitor *monitor);
 const char * cc_display_monitor_get_connector (CcDisplayMonitor *monitor);
 bool cc_display_monitor_is_builtin_display (CcDisplayMonitor *monitor);
+const char * cc_display_monitor_get_display_name (CcDisplayMonitor *monitor);
 
 bool cc_display_monitor_supports_underscanning (CcDisplayMonitor *monitor);
 bool cc_display_monitor_is_underscanning (CcDisplayMonitor *monitor);

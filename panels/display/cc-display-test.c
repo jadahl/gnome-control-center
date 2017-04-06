@@ -168,11 +168,14 @@ list_monitors (GError **error)
       const char *connector = cc_display_monitor_get_connector (monitor);
       bool is_active = cc_display_monitor_is_active (monitor);
       bool is_builtin_display = cc_display_monitor_is_builtin_display (monitor);
+      const char *display_name = cc_display_monitor_get_display_name (monitor);
 
       g_print ("Monitor [ %s ] %s%s\n",
                connector,
                is_active ? "ON" : "OFF",
                is_builtin_display ? " BUILTIN" : "");
+      if (display_name)
+        g_print ("  display-name: %s\n", display_name);
       list_modes (monitor);
     }
 

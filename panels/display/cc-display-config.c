@@ -47,6 +47,8 @@ typedef struct _CcDisplayMonitor
   GList *modes;
   CcDisplayMode *current_mode;
   CcDisplayMode *preferred_mode;
+
+  char *display_name;
 } CcDisplayMonitor;
 
 typedef struct _CcDisplayLogicalMonitor
@@ -101,6 +103,12 @@ const char *
 cc_display_monitor_get_connector (CcDisplayMonitor *monitor)
 {
   return monitor->connector;
+}
+
+const char *
+cc_display_monitor_get_display_name (CcDisplayMonitor *monitor)
+{
+  return monitor->display_name;
 }
 
 bool
@@ -237,8 +245,9 @@ cc_display_monitor_new_from_variant (GVariant *monitor_variant)
 {
   CcDisplayMonitor *monitor;
   GVariantIter *modes_iter;
-  GVariant *properties;
+  GVariant *properties_variant;
   GVariant *mode_variant;
+  GVariant *display_name_variant;
 
   monitor = g_new0 (CcDisplayMonitor, 1);
 
@@ -248,7 +257,7 @@ cc_display_monitor_new_from_variant (GVariant *monitor_variant)
                  &monitor->product,
                  &monitor->serial,
                  &modes_iter,
-                 &properties);
+                 &properties_variant);
 
   while ((mode_variant = g_variant_iter_next_value (modes_iter)))
     {
@@ -272,6 +281,15 @@ cc_display_monitor_new_from_variant (GVariant *monitor_variant)
       g_variant_unref (mode_variant);
     }
   g_variant_iter_free (modes_iter);
+
+  display_name_variant = g_variant_lookup_value (properties_variant,
+                                                 "display-name",
+                                                 G_VARIANT_TYPE ("s"));
+  if (display_name_variant)
+    {
+      g_variant_get (display_name_variant, "s",
+                     &monitor->display_name);
+    }
 
   return monitor;
 }
