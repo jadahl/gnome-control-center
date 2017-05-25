@@ -79,7 +79,7 @@ GList * cc_display_logical_monitor_get_monitors (CcDisplayLogicalMonitor *logica
 bool cc_display_logical_monitor_is_primary (CcDisplayLogicalMonitor *logical_monitor);
 void cc_display_logical_monitor_calculate_layout (CcDisplayLogicalMonitor *logical_monitor,
                                                   cairo_rectangle_int_t *layout);
-int cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor);
+double cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor);
 CcDisplayTransform cc_display_logical_monitor_get_transform (CcDisplayLogicalMonitor *logical_monitor);
 
 bool cc_display_monitor_is_active (CcDisplayMonitor *monitor);

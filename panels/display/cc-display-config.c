@@ -55,7 +55,7 @@ typedef struct _CcDisplayLogicalMonitor
 {
   int x;
   int y;
-  int scale;
+  double scale;
   CcDisplayTransform transform;
   GList *monitors;
   bool is_primary;
@@ -86,7 +86,7 @@ typedef struct _CcDisplayLogicalMonitorConfig
 {
   int x;
   int y;
-  int scale;
+  double scale;
   CcDisplayTransform transform;
   GList *monitor_configs;
   bool is_primary;
@@ -445,7 +445,7 @@ cc_display_logical_monitor_calculate_layout (CcDisplayLogicalMonitor *logical_mo
   };
 }
 
-int
+double
 cc_display_logical_monitor_get_scale (CcDisplayLogicalMonitor *logical_monitor)
 {
   return logical_monitor->scale;
