@@ -45,6 +45,12 @@ cc_display_mode_get_supported_scales (CcDisplayMode *self)
   return CC_DISPLAY_MODE_GET_CLASS (self)->get_supported_scales (self);
 }
 
+double
+cc_display_mode_get_preferred_scale (CcDisplayMode *self)
+{
+  return CC_DISPLAY_MODE_GET_CLASS (self)->get_preferred_scale (self);
+}
+
 gboolean
 cc_display_mode_is_interlaced (CcDisplayMode *self)
 {

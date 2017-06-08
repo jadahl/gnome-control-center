@@ -89,6 +89,14 @@ cc_display_mode_dbus_get_supported_scales (CcDisplayMode *pself)
   return (const double *) self->supported_scales->data;
 }
 
+static double
+cc_display_mode_dbus_get_preferred_scale (CcDisplayMode *pself)
+{
+  CcDisplayModeDBus *self = CC_DISPLAY_MODE_DBUS (pself);
+
+  return self->preferred_scale;
+}
+
 static gboolean
 cc_display_mode_dbus_is_supported_scale (CcDisplayMode *pself,
                                          double scale)
@@ -152,6 +160,7 @@ cc_display_mode_dbus_class_init (CcDisplayModeDBusClass *klass)
 
   parent_class->get_resolution = cc_display_mode_dbus_get_resolution;
   parent_class->get_supported_scales = cc_display_mode_dbus_get_supported_scales;
+  parent_class->get_preferred_scale = cc_display_mode_dbus_get_preferred_scale;
   parent_class->is_interlaced = cc_display_mode_dbus_is_interlaced;
   parent_class->get_freq = cc_display_mode_dbus_get_freq;
   parent_class->get_freq_f = cc_display_mode_dbus_get_freq_f;

@@ -80,6 +80,7 @@ struct _CcDisplayModeClass
 
   void (*get_resolution) (CcDisplayMode *self, int *w, int *h);
   const double * (*get_supported_scales) (CcDisplayMode *self);
+  double (*get_preferred_scale) (CcDisplayMode *self);
   gboolean (*is_interlaced) (CcDisplayMode *self);
   int (*get_freq) (CcDisplayMode *self);
   double (*get_freq_f) (CcDisplayMode *self);
@@ -188,6 +189,7 @@ void cc_display_mode_get_resolution (CcDisplayMode *mode,
                                      int *width,
                                      int *height);
 const double *cc_display_mode_get_supported_scales (CcDisplayMode *self);
+double cc_display_mode_get_preferred_scale (CcDisplayMode *self);
 gboolean cc_display_mode_is_interlaced (CcDisplayMode *mode);
 int cc_display_mode_get_freq (CcDisplayMode *mode);
 double cc_display_mode_get_freq_f (CcDisplayMode *mode);
